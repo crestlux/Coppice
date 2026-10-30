@@ -169,7 +169,7 @@ export function evaluateTabs(input: {
       }
       if (focusModeActive && !focusedTabIds.has(tab.id ?? -1)) {
         threshold = threshold == null ? settings.aggressiveMinutes : Math.min(threshold, settings.aggressiveMinutes);
-        rationale.push("Focus Mode advances cleanup of surrounding tabs.");
+        rationale.push("Focus mode advances cleanup of surrounding tabs.");
       }
     }
     let learningMultiplier = 1;

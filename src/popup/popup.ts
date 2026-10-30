@@ -37,7 +37,8 @@ import type {
   UnprotectTabResult
 } from "../shared/types";
 import { formatBytes, formatMinutes, formatPercent } from "../shared/time";
-import { getHostname, isDomainMatch, wildcardToRegExp } from "../shared/url";
+import { getHostname, isDomainMatch, siteLabel, wildcardToRegExp } from "../shared/url";
+import { discardReasonLabel } from "../shared/labels";
 import {
   getThresholdForPolicyMode,
   isPolicyThresholdEditable,
@@ -586,10 +587,10 @@ function renderResourceIntelligence(state: AppState, pressure: PressureSnapshot)
     elements.powerIntelligenceValue.textContent = `${power.charging ? "Charging" : "On battery"} · ${level}`;
     elements.powerIntelligenceDetail.textContent = power.policyApplied
       ? `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} policy active${
-          powerNetworkDietActive ? " · Light Network Diet" : ""
+          powerNetworkDietActive ? " · Light network filtering" : ""
         }`
       : powerNetworkDietActive
-        ? `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} tabs · Light Network Diet`
+        ? `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} tabs · Light network filtering`
         : `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} policy · no override`;
     intelligenceState(
       elements.powerIntelligence,
@@ -1315,7 +1316,7 @@ function appendDuplicateTabRow(container: HTMLElement, tab: DuplicateTabGroupPre
   meta.className = "duplicate-tab-meta";
   badge.className = "duplicate-action";
   title.textContent = tab.title || tab.domain || tab.url || "Untitled tab";
-  meta.textContent = [windowLabel(tab.windowId), tab.domain ?? tab.url ?? ""].filter(Boolean).join(" · ");
+  meta.textContent = [windowLabel(tab.windowId), siteLabel(tab.url, tab.domain) ?? tab.url ?? ""].filter(Boolean).join(" · ");
   badge.textContent = previewActionLabel(tab.action);
 
   main.append(title, meta);
@@ -1395,7 +1396,7 @@ function describeDecision(decision: DiscardDecision): string {
     case "specialScheme":
       return "Unavailable: special URL";
     case "protectedTemporary":
-      return "Protected: temporary whitelist";
+      return "Protected: Keep loaded";
     case "protectedDomain":
       return "Protected: domain rule";
     case "protectedUrlPattern":
@@ -1617,11 +1618,6 @@ function memoryReleaseLabel(estimate: MemoryReleaseEstimate | undefined): string
   return formatSignedBytes((estimate.settledAvailableBytes ?? estimate.delayedAvailableBytes) - estimate.beforeAvailableBytes);
 }
 
-// Who started an unload, in the words people use for it.
-function releaseReasonLabel(reason: MemoryReleaseEstimate["discardReason"]): string {
-  return reason === "manualRelease" ? "You asked" : reason === "memoryPressure" ? "Low memory" : "Automatic cleanup";
-}
-
 function renderMemoryRelease(estimate: MemoryReleaseEstimate | undefined, _logCount: number): void {
   if (!estimate) {
     elements.discardedMetricDetail.textContent = "No unload by Coppice yet";
@@ -1645,14 +1641,14 @@ function renderMemoryRelease(estimate: MemoryReleaseEstimate | undefined, _logCo
   if (estimate.status === "noDiscard") {
     elements.releaseFreedDetail.textContent = "No tabs could be unloaded last time.";
     elements.releaseCountMetric.textContent = "0 tabs";
-    elements.releaseSampleMetric.textContent = `${releaseReasonLabel(estimate.discardReason)}, nothing to measure.`;
+    elements.releaseSampleMetric.textContent = `${discardReasonLabel(estimate.discardReason)}, nothing to measure.`;
     return;
   }
 
   if (estimate.status === "measurementFailed") {
     elements.releaseFreedDetail.textContent = estimate.error ?? "Couldn’t measure memory after unloading.";
     elements.releaseCountMetric.textContent = pluralize(estimate.discardedCount, "tab");
-    elements.releaseSampleMetric.textContent = `${releaseReasonLabel(estimate.discardReason)}, not measured.`;
+    elements.releaseSampleMetric.textContent = `${discardReasonLabel(estimate.discardReason)}, not measured.`;
     return;
   }
 
@@ -1660,7 +1656,7 @@ function renderMemoryRelease(estimate: MemoryReleaseEstimate | undefined, _logCo
     estimate.beforeAvailableBytes
   )} → ${formatBytes(estimate.settledAvailableBytes ?? estimate.delayedAvailableBytes)}. Includes other apps.`;
   elements.releaseCountMetric.textContent = pluralize(estimate.discardedCount, "tab");
-  elements.releaseSampleMetric.textContent = `${releaseReasonLabel(estimate.discardReason)}, measured after ${
+  elements.releaseSampleMetric.textContent = `${discardReasonLabel(estimate.discardReason)}, measured after ${
     Math.round((estimate.settledDelayMs ?? estimate.sampleDelayMs) / 1000)} s.`;
 }
 
@@ -1922,7 +1918,7 @@ function appendTabDecision(container: HTMLElement, decision: DiscardDecision, ac
   const directBlockLabel = getDirectDiscardBlockLabel(decision);
   const metric = matchingTabMetric(decision);
   const resourceText = formatTabResources(decision);
-  const contextTarget = decision.tab.domain ?? decision.tab.url ?? "unknown";
+  const contextTarget = siteLabel(decision.tab.url, decision.tab.domain) ?? decision.tab.url ?? "unknown";
   const temporaryProtection = temporaryTabProtectionForDecision(decision);
   const temporarilyWhitelisted = isTemporaryWhitelistForDecision(decision);
   const ruleProtected = hasMatchingProtectionRule(decision);
@@ -2215,7 +2211,7 @@ function render(data: PopupState, optimizerRevision = optimizerMutationRevision)
     ruleProtectedCount,
     "rule match",
     "rule matches"
-  )} · ${pluralize(temporaryProtectedCount, "whitelist")} · ${pluralize(focusedCount, "focus tab")}`;
+  )} · ${temporaryProtectedCount} kept loaded · ${pluralize(focusedCount, "Focus tab")}`;
   elements.policyMode.textContent = state.focusModeEnabled ? "Focus mode" : humanizeMode(state.settings.policyMode);
   elements.policyMetricDetail.textContent = state.focusModeEnabled
     ? focusedCount > 0
@@ -2839,7 +2835,7 @@ elements.policyModeSelect.addEventListener("change", () => {
   const policyMode = elements.policyModeSelect.value as PolicyMode;
   const patch = policySettingsPatchForPolicyMode(policyMode, currentState?.settings);
 
-  void runAction("Update policy mode", () => sendAppMessage({ type: "updateSettings", patch }));
+  void runAction("Update cleanup mode", () => sendAppMessage({ type: "updateSettings", patch }));
 });
 
 elements.customThresholdMinutes.addEventListener("change", () => {
@@ -2855,7 +2851,7 @@ elements.customThresholdMinutes.addEventListener("change", () => {
     return;
   }
 
-  void runAction("Update custom threshold", () =>
+  void runAction("Update unload time", () =>
     sendAppMessage({
       type: "updateSettings",
       patch: {
@@ -2867,7 +2863,7 @@ elements.customThresholdMinutes.addEventListener("change", () => {
 });
 
 elements.networkDietModeSelect.addEventListener("change", () => {
-  void runAction("Update network diet", () =>
+  void runAction("Update network filtering", () =>
     sendAppMessage({
       type: "setNetworkDietMode",
       mode: elements.networkDietModeSelect.value as NetworkDietMode
@@ -2919,7 +2915,7 @@ function handleTabListClick(event: Event): void {
 
   if (target.dataset.unwhitelistTabId) {
     void (async () => {
-      setMessage("Remove temporary whitelist...");
+      setMessage("Allow unload...");
       try {
         await sendAppMessage<TabProtectionToggleResult>({
           type: "setTabProtection",
@@ -2927,7 +2923,7 @@ function handleTabListClick(event: Event): void {
           protected: false
         });
         await refresh({ silent: true });
-        setMessage("Temporary whitelist removed.");
+        setMessage("This tab can be unloaded again.");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : String(error), true);
       }
@@ -2968,7 +2964,7 @@ function handleTabListChange(event: Event): void {
         setMessage(
           result.focused
             ? result.cleanupDiscardedCount > 0
-              ? `Focus added. Discarded ${pluralize(result.cleanupDiscardedCount, "background tab")}.`
+              ? `Focus added. Unloaded ${pluralize(result.cleanupDiscardedCount, "background tab")}.`
               : result.cleanupEligibleCount > 0
                 ? "Focus added. No background tabs could be unloaded."
                 : `Focus added. ${pluralize(result.activeFocusCount, "focus tab")} active; no background tabs ready.`
@@ -2990,7 +2986,7 @@ function handleTabListChange(event: Event): void {
   target.disabled = true;
 
   void (async () => {
-    setMessage(protectedTab ? "Whitelist tab..." : "Remove tab whitelist...");
+    setMessage(protectedTab ? "Keep loaded..." : "Allow unload...");
     try {
       const result = await sendAppMessage<TabProtectionToggleResult>({
         type: "setTabProtection",
@@ -2999,13 +2995,13 @@ function handleTabListChange(event: Event): void {
       });
       await refresh({ silent: true });
       if (!protectedTab && result.protected && result.changed) {
-        setMessage("Temporary whitelist removed; another protection still applies.");
+        setMessage("Keep loaded is off, but another protection still applies.");
       } else if (result.protected && result.temporary) {
-        setMessage(result.changed ? "Tab temporarily whitelisted." : "Tab is already temporarily whitelisted.");
+        setMessage(result.changed ? "This tab stays loaded until it closes." : "This tab already stays loaded.");
       } else if (result.protected) {
-        setMessage(result.changed ? "Tab protection synced from rule." : "Tab is protected by an existing rule.");
+        setMessage("A protection rule keeps this tab loaded.");
       } else {
-        setMessage(result.changed ? "Temporary whitelist removed." : "No temporary whitelist found.");
+        setMessage(result.changed ? "This tab can be unloaded again." : "This tab was not set to stay loaded.");
       }
     } catch (error) {
       target.checked = !protectedTab;
@@ -3082,7 +3078,7 @@ elements.protectDomainButton.addEventListener("click", () => {
 });
 
 elements.saveWindowButton.addEventListener("click", () => {
-  void runAction("Save current window", () =>
+  void runAction("Save window and close", () =>
     sendAppMessage<SaveAndCloseResult>({
       type: "saveWindowAndClose",
       includeActive: false,

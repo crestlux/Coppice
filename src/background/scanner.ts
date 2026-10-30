@@ -1087,7 +1087,7 @@ export async function discardTabNow(tabId: number): Promise<ScanEvaluation & { d
   const discardedCount = batch.discardedCount;
 
   if (discardedCount === 0) {
-    throw new Error(attempt.message ?? "Tab could not be discarded.");
+    throw new Error(attempt.message ?? "Tab could not be unloaded.");
   }
 
   const lastMemoryRelease = await saveMemoryReleaseAfterDiscard({

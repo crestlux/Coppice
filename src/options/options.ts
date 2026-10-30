@@ -25,6 +25,7 @@ import {
 import { formatDateTime, formatMinutes, formatPercent as formatRatio } from "../shared/time";
 import { headroomLabel, paintHeadroom, presentHeadroom } from "../shared/headroomPresentation";
 import { isSnoozed } from "../shared/snooze";
+import { discardReasonLabel } from "../shared/labels";
 import {
   POLICY_MODE_THRESHOLD_PRESETS,
   getThresholdForPolicyMode,
@@ -71,6 +72,7 @@ const elements = {
   policyMode: getSelect("policyMode"),
   scanIntervalMinutes: getInput("scanIntervalMinutes"),
   inactiveThresholdMinutes: getInput("inactiveThresholdMinutes"),
+  inactiveThresholdHelp: getElement("inactiveThresholdHelp"),
   maxAutoDiscardsPerScan: getInput("maxAutoDiscardsPerScan"),
   maxManualDiscardsPerAction: getInput("maxManualDiscardsPerAction"),
   memoryHighAvailableRatio: getInput("memoryHighAvailableRatio"),
@@ -277,6 +279,15 @@ function setInactiveThresholdValue(value: number | null, editable: boolean): voi
   elements.inactiveThresholdMinutes.value = value == null ? "" : String(value);
 }
 
+// The unload time field says what sets it, instead of sitting empty or showing a preset without context.
+function describeInactiveThreshold(mode: PolicyMode): void {
+  elements.inactiveThresholdMinutes.placeholder = mode === "pressureAdaptive" ? "Adaptive: 2–45" : mode === "manual" ? "Only when you ask" : "";
+  elements.inactiveThresholdHelp.textContent = mode === "manual" ? "Manual mode unloads only when you ask."
+    : mode === "pressureAdaptive" ? "Pressure adaptive sets this for you."
+      : mode === "custom" ? "Tabs inactive this long can be unloaded."
+        : "Set by the mode. Choose Custom to change it.";
+}
+
 function setPresetControlledInputsEditable(mode: PolicyMode, locked = false): void {
   const editable = isPolicyThresholdEditable(mode);
 
@@ -288,7 +299,7 @@ function setPresetControlledInputsEditable(mode: PolicyMode, locked = false): vo
     elements.memoryEmergencyAvailableRatio
   ]) {
     input.disabled = locked || !editable;
-    input.title = locked ? "Turn off Focus Mode before changing Policy Mode settings." : "";
+    input.title = locked ? "Turn off Focus mode before changing cleanup settings." : "";
   }
 }
 
@@ -304,14 +315,14 @@ function renderPolicy(settings: Settings): void {
 
   elements.policyMode.value = settings.policyMode;
   elements.policyMode.disabled = focusLocked;
-  elements.policyMode.title = focusLocked ? "Turn off Focus Mode before changing Policy Mode." : "";
+  elements.policyMode.title = focusLocked ? "Turn off Focus mode before changing the cleanup mode." : "";
   elements.focusPolicyNotice.hidden = !focusLocked;
   setNumber(elements.scanIntervalMinutes, settings.scanIntervalMinutes);
   setInactiveThresholdValue(settings.policyMode === "pressureAdaptive" ? null : getThresholdForPolicyMode(settings), !focusLocked && isPolicyThresholdEditable(settings.policyMode));
   elements.inactiveThresholdMinutes.title = focusLocked
-    ? "Turn off Focus Mode before changing inactive threshold."
+    ? "Turn off Focus mode before changing when tabs unload."
     : "";
-  elements.inactiveThresholdMinutes.placeholder = settings.policyMode === "pressureAdaptive" ? "Adaptive: 2–45" : "";
+  describeInactiveThreshold(settings.policyMode);
   setPresetControlledInputsEditable(settings.policyMode, focusLocked);
   setNumber(elements.maxAutoDiscardsPerScan, settings.maxAutoDiscardsPerScan);
   setNumber(elements.maxManualDiscardsPerAction, settings.maxManualDiscardsPerAction);
@@ -794,12 +805,12 @@ function renderRules(state: AppState): void {
   }
 }
 
-function createPolicySelect(window: WindowSummary): HTMLSelectElement {
+function createPolicySelect(window: WindowSummary, name: string): HTMLSelectElement {
   const select = document.createElement("select");
   select.dataset.windowPolicy = String(window.windowId);
-  select.setAttribute("aria-label", `Policy for Window ${window.windowId}`);
+  select.setAttribute("aria-label", `Policy for ${name}`);
   select.disabled = Boolean(currentState?.focusModeEnabled);
-  select.title = select.disabled ? "Turn off Focus Mode before changing window policy." : "";
+  select.title = select.disabled ? "Turn off Focus mode before changing a window policy." : "";
 
   for (const [value, label] of [
     ["inherit", "Inherit global"],
@@ -829,7 +840,9 @@ function renderWindowPolicies(state: AppState): void {
     return;
   }
 
-  for (const window of windows) {
+  // Chrome window ids like 186093865 mean nothing to people; number the windows the way the popup does.
+  for (const [index, window] of [...windows].sort((a, b) => a.windowId - b.windowId).entries()) {
+    const name = `Window ${index + 1}`;
     const row = document.createElement("div");
     const main = document.createElement("div");
     const title = document.createElement("div");
@@ -841,12 +854,12 @@ function renderWindowPolicies(state: AppState): void {
     title.className = "row-title";
     meta.className = "row-meta";
     actions.className = "row-actions";
-    title.textContent = `Window ${window.windowId}`;
+    title.textContent = name;
     meta.textContent = `${window.tabCount} tabs · ${window.activeDomain ?? "no active site"} · ${
       window.activeTitle ?? "Untitled"
     }`;
 
-    actions.append(createPolicySelect(window));
+    actions.append(createPolicySelect(window, name));
     main.append(title, meta);
     row.append(main, actions);
     elements.windowPolicyList.append(row);
@@ -933,7 +946,7 @@ function renderLog(state: AppState): void {
     meta.className = "row-meta";
     actions.className = "row-actions";
     title.textContent = entry.title || entry.domain || "Unloaded tab";
-    meta.textContent = `${formatDateTime(entry.discardedAt)} · ${entry.reason} · inactive ${formatMinutes(
+    meta.textContent = `${formatDateTime(entry.discardedAt)} · ${discardReasonLabel(entry.reason)} · inactive ${formatMinutes(
       entry.inactiveMinutes
     )}${entry.undoneAt ? ` · undone ${formatDateTime(entry.undoneAt)}` : ""}`;
     undoButton.type = "button";
@@ -1218,7 +1231,7 @@ chrome.permissions.onRemoved?.addListener(() => void refreshWorkProtectionAccess
 elements.policyMode.addEventListener("change", () => {
   if (currentState?.focusModeEnabled) {
     elements.policyMode.value = currentState.settings.policyMode;
-    setStatus("Turn off Focus Mode before changing Policy Mode.", true);
+    setStatus("Turn off Focus mode before changing the cleanup mode.", true);
     return;
   }
 
@@ -1234,8 +1247,9 @@ elements.policyMode.addEventListener("change", () => {
   } else {
     setInactiveThresholdValue(POLICY_MODE_THRESHOLD_PRESETS[mode], isPolicyThresholdEditable(mode));
   }
+  describeInactiveThreshold(mode);
 
-  setStatus("Policy preview changed. Use Save Policy to apply it, or run the simulator without saving.");
+  setStatus("Not saved yet. Use Save policy to apply it, or try it in Policy simulator.");
 });
 
 elements.savePolicyButton.addEventListener("click", () => {
@@ -1301,7 +1315,7 @@ for (const input of [
   elements.respectAutoDiscardableFalse
 ]) {
   input.addEventListener("change", () => {
-    setStatus("Policy preview changed. Use Save Policy to apply it, or run the simulator without saving.");
+    setStatus("Not saved yet. Use Save policy to apply it, or try it in Policy simulator.");
   });
 }
 
@@ -1336,7 +1350,7 @@ elements.windowPolicyList.addEventListener("change", event => {
   const target = event.target;
   if (!(target instanceof HTMLSelectElement) || !target.dataset.windowPolicy) return;
   if (currentState?.focusModeEnabled) {
-    setStatus("Turn off Focus Mode before changing window policy.", true);
+    setStatus("Turn off Focus mode before changing a window policy.", true);
     void refresh();
     return;
   }

@@ -109,14 +109,14 @@
               <option value="conservative">Conservative, 30 min</option>
               <option value="balanced">Balanced, 15 min</option>
               <option value="aggressive">Aggressive, 5 min</option>
-              <option value="pressureAdaptive">Pressure Adaptive, dynamic</option>
+              <option value="pressureAdaptive">Pressure adaptive, dynamic</option>
               <option value="custom">Custom</option>
             </select>
           </label>
 <label>
             Unload after (minutes)
             <input id="inactiveThresholdMinutes" type="number" min="1" max="10080" step="1" />
-            <span class="field-help">Pressure adaptive sets this for you.</span>
+            <span id="inactiveThresholdHelp" class="field-help">Pressure adaptive sets this for you.</span>
           </label></div>
 <details class="disclosure"><summary>Advanced limits and memory thresholds</summary><div class="disclosure-body grid two"><label>
             Check every (minutes)

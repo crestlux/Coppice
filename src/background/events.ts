@@ -4,6 +4,7 @@ import {
   isDomainMatch,
   isHttpUrl,
   matchesProtectedDomain,
+  siteLabel,
   wildcardToRegExp
 } from "../shared/url";
 import { isDuplicateProtectionRule, normalizeProtectionRuleValue } from "../shared/protectionRules";
@@ -149,7 +150,7 @@ async function getWindowSummaries() {
         windowId,
         tabCount: windowTabs.length,
         activeTitle: activeTab?.title,
-        activeDomain: getHostname(activeTab?.url) ?? undefined,
+        activeDomain: siteLabel(activeTab?.url),
         policyMode: windowPolicy?.policyMode ?? "inherit"
       };
     });
@@ -532,7 +533,7 @@ async function setTabProtection(tabId: number, protectedTab: boolean): Promise<T
   }
 
   if (!tab.url || !isHttpUrl(tab.url)) {
-    throw new Error("Only HTTP and HTTPS tabs can be whitelisted.");
+    throw new Error("Only website tabs can be kept loaded.");
   }
 
   await setTemporaryTabProtection({
@@ -570,7 +571,7 @@ async function setFocusMode(enabled: boolean) {
 async function setTabFocus(tabId: number, focused: boolean): Promise<TabFocusToggleResult> {
   const focusModeEnabled = await getFocusModeEnabled();
   if (!focusModeEnabled) {
-    throw new Error("Turn on Focus Mode before choosing focus tabs.");
+    throw new Error("Turn on Focus mode before choosing Focus tabs.");
   }
 
   const tab = await getTabById(tabId);
@@ -1129,7 +1130,7 @@ export async function handleMessage(message: AppMessage): Promise<unknown> {
       return pullSelectiveSync();
     case "updateSettings": {
       if (containsPolicyModePatch(message.patch) && (await getFocusModeEnabled())) {
-        throw new Error("Turn off Focus Mode before changing Policy Mode.");
+        throw new Error("Turn off Focus mode before changing the cleanup mode.");
       }
       const settings = await updateSettings(message.patch);
       if (message.patch.protectUnsavedWork !== undefined) await reconcileWorkProtection();
@@ -1163,7 +1164,7 @@ export async function handleMessage(message: AppMessage): Promise<unknown> {
     }
     case "setWindowPolicy":
       if (await getFocusModeEnabled()) {
-        throw new Error("Turn off Focus Mode before changing window policy.");
+        throw new Error("Turn off Focus mode before changing a window policy.");
       }
       return setWindowPolicy(message.windowId, message.policyMode);
     case "undoDiscard":

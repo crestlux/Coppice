@@ -525,7 +525,7 @@ export function assessPressureRootCause(input: {
       measuredHeapCapacityRatio: measuredHeapCapacityRatio == null ? null : round(measuredHeapCapacityRatio),
       recentMemoryRelease,
       recentExternalDiscardCount,
-      evidence: [input.pressure.memorySampleValid === false ? "Memory reading unavailable." : input.pressure.cpuLevel === "high" ? "System CPU is elevated. Only fresh task measurements from the same tab document can justify CPU-targeted cleanup." : "System memory is currently in the normal range."]
+      evidence: [input.pressure.memorySampleValid === false ? "Memory reading unavailable." : input.pressure.cpuLevel === "high" ? "CPU use is high. Tabs are unloaded for CPU only after they are measured." : "System memory is currently in the normal range."]
     };
   }
 
@@ -556,16 +556,16 @@ export function assessPressureRootCause(input: {
       const excessRatio = Math.min(1, (measuredHeapCapacityRatio - highHeapRatio) / Math.max(highHeapRatio, 0.001));
       tabEvidenceScore += (1.5 + excessRatio) * metricCoverage;
       directionalSources += 1;
-      evidence.push("Fresh tab metrics show substantial measured JS heap relative to system capacity.");
+      evidence.push("Measured tabs use a large share of memory.");
     } else if (measuredHeapCapacityRatio <= lowHeapRatio && metricCoverage >= 0.5) {
-      evidence.push("Measured JS heap is small, but native renderer, DOM, media and GPU memory are unmeasured; other applications cannot be inferred from this.");
+      evidence.push("Measured tabs use little JavaScript memory. Page, media and GPU memory are not measured, so other apps cannot be blamed yet.");
     } else {
-      evidence.push("Fresh tab metrics are available but do not strongly identify the pressure source.");
+      evidence.push("Tab measurements do not point to a clear cause.");
     }
   } else if (freshMetrics.length > 0) {
-    evidence.push("Fresh tab metrics cover too few open tabs for a root-cause inference.");
+    evidence.push("Too few tabs are measured to tell the cause.");
   } else {
-    evidence.push("No fresh per-tab heap metrics are available.");
+    evidence.push("No recent tab measurements.");
   }
 
   let releaseSupportsTabs = false;
@@ -590,18 +590,18 @@ export function assessPressureRootCause(input: {
         tabEvidenceScore += 2;
         directionalSources += 1;
         releaseSupportsTabs = true;
-        evidence.push("A recent verified discard batch was followed by meaningful available-memory growth.");
+        evidence.push("The last unload freed a meaningful amount of memory.");
       } else if (input.memoryRelease.estimatedFreedBytes <= minimumReleaseBytes * 0.25) {
         otherEvidenceScore += 0.5;
         directionalSources += 1;
-        evidence.push("A recent discard batch produced little or no measured system-memory improvement.");
+        evidence.push("The last unload freed little or no memory.");
       } else {
         tabEvidenceScore += 0.4;
         otherEvidenceScore += 0.4;
-        evidence.push("A recent discard batch produced an inconclusive memory change.");
+        evidence.push("The last unload had an unclear effect on memory.");
       }
     } else if (input.memoryRelease.status === "measurementFailed") {
-      evidence.push("The recent post-discard memory measurement failed and is not used as evidence.");
+      evidence.push("Memory was not measured after the last unload.");
     }
   }
 
@@ -609,7 +609,7 @@ export function assessPressureRootCause(input: {
     // This is weak evidence only: the browser/another extension may be reacting
     // to the same pressure, but the source cannot be identified by tabs.onUpdated.
     // Native discard activity is a coexistence signal, not process attribution.
-    evidence.push("Chrome or another extension recently discarded tabs; allow time to observe their effect.");
+    evidence.push("Chrome or another extension unloaded tabs recently; give it a moment.");
   }
 
   tabEvidenceScore = round(tabEvidenceScore);

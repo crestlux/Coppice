@@ -301,6 +301,10 @@ html { height: 600px; min-height: 0; overflow: hidden; }
 .view-panel .attempt-list strong.failed { color: var(--red); }
 .view-panel .performance-action-grid .primary-action { border-color: var(--accent); background: var(--tint-accent); color: var(--accent); }
 
+/* The Focus panel is a <details>: its rows sit in ::details-content, so the panel's grid gap never reaches them. */
+.focus-mode-panel > :not(summary) + :not(summary) { margin-top: 10px; }
+.view-panel .quick-settings { gap: 10px 12px; }
+
 /* Search results: sentence-case kinds and rows without their own borders. */
 .command-results .command-kind { min-width: 0; padding: 2px 8px; font-size: .75rem; font-weight: 600; letter-spacing: normal; text-transform: none; }
 .command-results .command-result { border: 1px solid transparent; }

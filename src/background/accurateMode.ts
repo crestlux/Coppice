@@ -131,7 +131,7 @@ function hasAnyAccurateModeOperation(except?: "active" | "openTabs" | "leakCheck
 
 function assertNoCompetingAccurateModeOperation(except?: "active" | "openTabs" | "leakCheck"): void {
   if (hasAnyAccurateModeOperation(except)) {
-    throw new Error("Accurate Mode is already measuring. Wait for the current measurement to finish.");
+    throw new Error("Tab memory is already being measured. Wait for it to finish.");
   }
 }
 
@@ -367,7 +367,7 @@ export async function measureActiveTabAccurately(): Promise<ActiveTabAccurateMet
 async function doMeasureActiveTabAccurately(): Promise<ActiveTabAccurateMetrics> {
   const debuggerPermissionGranted = await hasDebuggerPermission();
   if (!debuggerPermissionGranted) {
-    throw new Error("Accurate Mode requires the debugger permission. Reload the unpacked extension after the manifest update.");
+    throw new Error("Measuring tab memory needs the debugger permission. Reload Coppice in chrome://extensions and try again.");
   }
 
   const tab = await getActiveHttpTab();
@@ -491,7 +491,7 @@ export async function measureOpenTabsAccurately(): Promise<OpenTabsAccurateMetri
 async function doMeasureOpenTabsAccurately(): Promise<OpenTabsAccurateMetricsResult> {
   const debuggerPermissionGranted = await hasDebuggerPermission();
   if (!debuggerPermissionGranted) {
-    throw new Error("Accurate Mode requires the debugger permission. Reload the unpacked extension after the manifest update.");
+    throw new Error("Measuring tab memory needs the debugger permission. Reload Coppice in chrome://extensions and try again.");
   }
 
   const tabs = (await chrome.tabs.query({})).sort((a, b) => {

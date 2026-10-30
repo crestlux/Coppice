@@ -76,7 +76,7 @@ async function syncDnrRulesNow(mode: NetworkDietMode): Promise<void> {
  * leave Chrome with rules from an older request. */
 export function syncDnrRules(mode: NetworkDietMode): Promise<void> {
   if (mode !== "off" && mode !== "light") {
-    return Promise.reject(new Error("Invalid Network Diet mode."));
+    return Promise.reject(new Error("Unknown network filtering mode."));
   }
   const operation = syncQueue.then(() => syncDnrRulesNow(mode));
   syncQueue = operation.catch(() => undefined);

@@ -20,6 +20,15 @@ export function getHostname(url?: string): string | null {
   return parsed?.hostname.toLowerCase() ?? null;
 }
 
+/** The site name people read for a tab. Extension pages get a name instead of their 32-letter id. */
+export function siteLabel(url?: string, domain?: string): string | undefined {
+  const parsed = parseUrlSafe(url);
+  if (parsed?.protocol === "chrome-extension:") {
+    return typeof chrome !== "undefined" && chrome.runtime?.id === parsed.hostname ? "Coppice" : "Extension page";
+  }
+  return domain ?? parsed?.hostname.toLowerCase();
+}
+
 export function isDomainMatch(hostname: string, ruleDomain: string): boolean {
   const h = hostname.toLowerCase();
   const r = ruleDomain.toLowerCase();

@@ -20,7 +20,8 @@ body { min-height: 0; }
 .snooze-custom input { width: 74px; min-height: 32px; padding: 4px 8px; font-size: .8125rem; }
 .pressure { font-size: .75rem; padding: 3px 9px; font-weight: 600; }
 .snooze-controls select, .snooze-controls input, .snooze-button { min-height: 32px; font-size: .8125rem; padding: 4px 8px; }
-.snooze-controls select { width: 92px; }
+/* Wide enough for "Until resumed": Chrome widens the open list past a narrower select, so it would hang off the box. */
+.snooze-controls select { width: 124px; }
 .snooze-until { max-width: 180px; font-size: .75rem; white-space: normal; }
 
 .metrics { gap: 10px; }
