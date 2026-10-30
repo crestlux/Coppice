@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/187414d1-4c55-4fd2-a7f4-9fa2955d7f98
 Memory release depends on the pages, protection rules and Chrome version. The popup reports system-wide changes, which include other apps, so it cannot attribute all of that change to Coppice.
 
 <p align="center">
-  <img src="media/demo.gif" width="420" alt="The Coppice popup with memory at High: Unload background tabs is pressed, the gauge turns Steady, and the result line reports the available RAM that came back" />
+  <img src="media/popup-light-dark.png" width="820" alt="Coppice popup in light and dark themes: free memory with a pressure gauge, the Unload background tabs button, tab search, and a list with Tabs, Protected, Page optimizer and More tools" />
 </p>
 
 ## <img src="media/icons/installation.svg" width="24" height="24" alt="" /> Installation
@@ -70,10 +70,6 @@ Need a quiet hour? **Snooze** pauses automatic cleanup for the time you pick. Ma
 ## <img src="media/icons/features.svg" width="24" height="24" alt="" /> Features
 
 ### The popup
-
-<p align="center">
-  <img src="media/popup-light-dark.png" width="820" alt="Coppice popup in light and dark themes: free memory with a pressure gauge, the Unload background tabs button, tab search, and a list with Tabs, Protected, Page optimizer and More tools" />
-</p>
 
 | Part | What it does |
 | --- | --- |
