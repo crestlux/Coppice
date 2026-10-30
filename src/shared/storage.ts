@@ -779,13 +779,22 @@ export const permanentlyDeleteTrashedSession = serializeMutation(permanentlyDele
 
 const EFFECT_HISTORY_RETENTION_MS = 24 * 60 * 60_000;
 
+// Every scan appends a sample and loadAppState reads the whole list. Samples used to carry the full
+// pressure, root-cause and power snapshots (about 2 KB each, up to 2,000 a day) that nothing reads.
+function compactEffectHistoryEntry(entry: EffectHistoryEntry): EffectHistoryEntry {
+  const { sampledAt, memoryAvailableRatio, level, cpuLevel } = entry.pressure;
+  const { id, discardedCount, discardReason, estimatedFreedBytes, releaseStatus } = entry;
+  return { id, sampledAt: entry.sampledAt, pressure: { sampledAt, memoryAvailableRatio, level, cpuLevel },
+    discardedCount, discardReason, estimatedFreedBytes, releaseStatus };
+}
+
 export async function getEffectHistory(now = Date.now()): Promise<EffectHistoryEntry[]> {
   const history = (await getLocal(STORAGE_KEYS.EFFECT_HISTORY)) ?? [];
-  return history.filter(item => now - item.sampledAt <= EFFECT_HISTORY_RETENTION_MS);
+  return history.filter(item => now - item.sampledAt <= EFFECT_HISTORY_RETENTION_MS).map(compactEffectHistoryEntry);
 }
 
 async function appendEffectHistoryUnqueued(entry: EffectHistoryEntry): Promise<EffectHistoryEntry[]> {
-  const next = [entry, ...(await getEffectHistory())].slice(0, 2_000);
+  const next = [compactEffectHistoryEntry(entry), ...(await getEffectHistory())].slice(0, 2_000);
   await setLocal({ [STORAGE_KEYS.EFFECT_HISTORY]: next });
   return next;
 }

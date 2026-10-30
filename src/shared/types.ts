@@ -511,16 +511,17 @@ export interface TrashedSession {
   session: SavedSession;
 }
 
+/** The pressure fields the effect report, automation outcomes and backup validation read. */
+export type EffectHistoryPressure = Pick<PressureSnapshot, "sampledAt" | "memoryAvailableRatio" | "level" | "cpuLevel">;
+
 export interface EffectHistoryEntry {
   releaseStatus?: MemoryReleaseEstimate["status"];
   id: string;
   sampledAt: number;
-  pressure: PressureSnapshot;
+  pressure: EffectHistoryPressure;
   discardedCount: number;
   discardReason?: DiscardReason;
   estimatedFreedBytes?: number;
-  rootCause?: PressureRootCauseAssessment;
-  powerState?: PowerStateSnapshot;
 }
 
 export interface EffectReport24h {

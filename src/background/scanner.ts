@@ -228,9 +228,7 @@ async function appendEffectSample(input: {
     discardedCount: input.discardedCount,
     discardReason: input.discardReason,
     estimatedFreedBytes: input.discardedCount > 0 && input.memoryRelease?.status === "measured" ? input.memoryRelease.estimatedFreedBytes : undefined,
-    releaseStatus: input.discardedCount > 0 ? input.memoryRelease?.status : undefined,
-    rootCause: input.evaluation.state.rootCauseAssessment,
-    powerState: input.evaluation.state.powerState
+    releaseStatus: input.discardedCount > 0 ? input.memoryRelease?.status : undefined
   });
 }
 
