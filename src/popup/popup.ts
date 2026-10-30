@@ -691,7 +691,7 @@ function commandKindLabel(item: CommandItem): string {
 function rebuildCommandItems(): void {
   const tabItems: CommandItem[] = openCommandTabs.flatMap(tab => {
     if (typeof tab.id !== "number" || typeof tab.windowId !== "number") return [];
-    const domain = getHostname(tab.url) ?? "Chrome page";
+    const domain = siteLabel(tab.url) ?? "Chrome page";
     const title = tab.title?.trim() || domain || "Untitled tab";
     const state = tab.discarded ? "Unloaded" : tab.active ? "Active" : "Open";
     return [
@@ -1433,6 +1433,7 @@ function getDirectDiscardBlockLabel(decision: DiscardDecision): string | null {
   if (decision.tab.audible) return "Playing audio";
   if (decision.tab.discarded) return "Unloaded";
   if (!decision.tab.url) return "Chrome page";
+  if (decision.tab.url.startsWith("chrome-extension://")) return "Extension page";
   if (!decision.tab.url.startsWith("http://") && !decision.tab.url.startsWith("https://")) return "Chrome page";
   if (isFocusProtectionForDecision(decision)) return "In Focus mode";
   if (isTabWhitelisted(decision)) return "Kept loaded";
