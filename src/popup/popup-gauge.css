@@ -1,0 +1,101 @@
+/* Popup layout for the headroom gauge. Colors, type and controls come from
+   ../shared/pastel-tokens.css, loaded just before this file. */
+.popup-shell { gap: 8px; padding-block: 12px; }
+#homeView { gap: 10px; }
+.brand-title { font-size: 1.125rem; font-weight: 650; letter-spacing: -.01em; }
+.topbar { border-bottom-color: var(--line); }
+
+/* The gauge itself lives in ../shared/headroom.css; here it is a button that opens Resource details. */
+.metrics > .headroom {
+  display: grid;
+  justify-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  text-align: start;
+}
+.metrics > .headroom:hover:not(:disabled) { --notch: var(--surface); border-color: var(--line); background: var(--surface); }
+.metrics > .headroom.active { border-color: var(--line-strong); }
+/* The icon keeps the store's transparent margin; enlarge it so the artwork reads at header size. */
+.brand-icon { width: 38px; height: 38px; margin: -3px; }
+
+/* Main action: the moon against the sky (tokens in pastel-tokens.css). */
+#releaseButton { border: 1px solid var(--action-line); border-radius: 8px; background: var(--action); color: var(--action-ink); font-weight: 650; }
+#releaseButton:hover:not(:disabled) { border-color: var(--action-line); background: var(--action-hover); color: var(--action-ink); }
+
+/* Secondary figures stay quiet: two links in one row under search. */
+.overview-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.overview-stats > .metric-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-height: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: start;
+}
+.overview-stats > .metric-card:hover:not(:disabled) { border-color: var(--line-strong); background: var(--surface-soft); }
+.overview-stats > .metric-card > span { color: var(--muted); font-size: .875rem; }
+.overview-stats > .metric-card > strong {
+  color: var(--text-strong);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.overview-stats > .metric-card > .metric-detail { grid-column: 1 / -1; font-size: .75rem; line-height: 1.5; }
+.overview-stats > .metric-card[data-view-target="protected"] > strong { color: var(--text-strong); }
+
+.home-tools { background: var(--surface); }
+.home-tools > summary::marker { color: var(--muted); }
+.metric-card { border-radius: 10px; }
+.tool-navigation .metric-card { background: var(--surface-quiet); }
+
+/* Detail views: flat header, headings in ink, no decorative bars or all-caps labels. */
+.detail-header { box-shadow: none; backdrop-filter: none; }
+/* One row: a round back control beside the view title. The breadcrumb and button text only
+   repeated the title; the button keeps its "Back to Overview" name and the Escape shortcut. */
+.detail-header { display: flex; align-items: center; gap: 12px; min-height: 0; padding: 2px 0 4px; }
+.detail-header .back-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+}
+.detail-header .back-button:hover:not(:disabled) { background: var(--surface-soft); border-color: var(--accent); }
+.detail-header .back-copy, .detail-header .view-breadcrumb { display: none; }
+.detail-header .back-arrow { width: auto; height: auto; border: 0; background: none; color: var(--text-strong); font-size: 1.0625rem; line-height: 1; }
+.detail-header .view-context { min-width: 0; padding: 0; }
+.detail-header #viewTitle { margin: 0; font-size: 1.25rem; line-height: 1.3; }
+/* View toolbars repeated the view title under another name; keep the heading for screen readers only. */
+.view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; }
+.view-toolbar h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.view-toolbar span { color: var(--muted); font-size: .8125rem; }
+.section-heading h2, .candidate-heading h2 { color: var(--text-strong); }
+.candidate-heading h2 { font-size: 1rem; font-weight: 650; letter-spacing: normal; text-transform: none; }
+.section-heading h2::before, .candidate-heading h2::before { display: none; }
+.release-summary-card > span { color: var(--muted); font-size: .8125rem; font-weight: 500; letter-spacing: normal; text-transform: none; }
+
+/* Pills in detail views read as status, not decoration. */
+.pressure.paused { color: var(--text); background: var(--surface-soft); }
+
+@media (max-width: 400px) {
+  .overview-stats { grid-template-columns: 1fr; }
+}
+
+@media (forced-colors: active) {
+  .metrics > .headroom { border-color: ButtonText; }
+  #releaseButton { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+  .overview-stats > .metric-card { border-color: ButtonText; background: Canvas; }
+}

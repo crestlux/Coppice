@@ -1,0 +1,140 @@
+/* Dusk tokens shared by the popup and the settings page, taken from the Coppice icon:
+   a bluebell-to-apricot sky, a cream crescent, mint shoots. Mint, apricot and coral report
+   pressure; the main action is the moon against the sky (bluebell with cream text by day,
+   cream with bluebell text by night). Text always stays in ink for contrast.
+   Vite moves this shared file into a common chunk that loads before each page's own CSS,
+   so any rule here that competes with popup-refresh.css or options-refresh.css needs
+   higher specificity than the page rule, not a later position in the HTML. */
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("./fonts/archivo-latin-standard-normal.woff2") format("woff2-variations");
+}
+
+/* Neutrals carry the icon's bluebell hue (--tone-h). Status pastels share lightness and chroma;
+   only their hue changes, matching the icon's leaf (168), horizon (58) and deeper glow (25). */
+:root {
+  color-scheme: light dark;
+  font-family: "Archivo", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-stretch: 100%;
+  --tone-h: 284;
+  /* Night: the icon's sky after the sun has gone, deep bluebell above a faint plum horizon. */
+  --sky-top: oklch(.21 .045 282);
+  --sky-bottom: oklch(.215 .04 320);
+  --bg: var(--sky-top);
+  --bg-soft: oklch(.235 .045 var(--tone-h));
+  --surface: oklch(.255 .045 var(--tone-h));
+  --surface-soft: oklch(.29 .048 var(--tone-h));
+  --surface-raised: oklch(.33 .05 var(--tone-h));
+  --surface-quiet: oklch(.235 .042 var(--tone-h));
+  --line: oklch(.34 .045 var(--tone-h));
+  --line-strong: oklch(.56 .04 var(--tone-h));
+  --text: oklch(.90 .015 var(--tone-h));
+  --text-strong: oklch(.96 .01 var(--tone-h));
+  --muted: oklch(.74 .025 var(--tone-h));
+  --muted-soft: oklch(.70 .025 var(--tone-h));
+  --accent: oklch(.82 .08 280);
+  --accent-hover: oklch(.88 .06 280);
+  --accent-ink: oklch(.21 .045 282);
+  --tint-accent: oklch(.33 .07 280);
+  --action: oklch(.92 .05 82);
+  --action-hover: oklch(.96 .035 82);
+  --action-line: oklch(.92 .05 82);
+  --action-ink: oklch(.24 .06 280);
+  --crescent: oklch(.93 .05 82);
+  --green: oklch(.82 .085 168);
+  --green-strong: oklch(.76 .09 168);
+  --amber: oklch(.84 .08 58);
+  --yellow: oklch(.84 .08 58);
+  --red: oklch(.80 .09 25);
+  --blue: oklch(.80 .07 260);
+  --cyan: oklch(.80 .06 205);
+  --purple: oklch(.82 .07 300);
+  --tint-green: oklch(.31 .05 168);
+  --tint-amber: oklch(.31 .05 58);
+  --tint-red: oklch(.31 .05 25);
+  --tint-blue: oklch(.31 .05 260);
+  --tint-cyan: oklch(.31 .05 205);
+  --tint-purple: oklch(.31 .06 300);
+  --pastel-green: oklch(.82 .085 168);
+  --pastel-amber: oklch(.84 .08 58);
+  --pastel-red: oklch(.80 .09 25);
+  --pastel-idle: oklch(.46 .04 var(--tone-h));
+  --gauge-track: oklch(.31 .045 var(--tone-h));
+  --zone-high: oklch(.33 .05 58);
+  --zone-emergency: oklch(.33 .055 25);
+  --gauge-hatch: rgb(255 255 255 / 12%);
+  /* The page sits under the icon's sky: a faint vertical dusk across the whole window. */
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom)) fixed;
+  color: var(--text);
+  accent-color: var(--accent);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Day: the same sky, faded to a whisper of lavender above and apricot below. */
+    --sky-top: oklch(.955 .022 288);
+    --sky-bottom: oklch(.962 .024 55);
+    --bg-soft: oklch(.945 .02 var(--tone-h));
+    --surface: oklch(.99 .006 var(--tone-h));
+    --surface-soft: oklch(.972 .012 var(--tone-h));
+    --surface-raised: oklch(.94 .018 var(--tone-h));
+    --surface-quiet: oklch(.995 .004 var(--tone-h));
+    --line: oklch(.90 .018 var(--tone-h));
+    --line-strong: oklch(.60 .035 var(--tone-h));
+    --text: oklch(.30 .045 var(--tone-h));
+    --text-strong: oklch(.25 .05 var(--tone-h));
+    --muted: oklch(.48 .035 var(--tone-h));
+    --muted-soft: oklch(.50 .035 var(--tone-h));
+    --accent: oklch(.47 .14 280);
+    --accent-hover: oklch(.42 .14 280);
+    --accent-ink: oklch(.99 .006 280);
+    --tint-accent: oklch(.94 .035 280);
+    --action: oklch(.54 .14 279);
+    --action-hover: oklch(.49 .14 279);
+    --action-line: oklch(.54 .14 279);
+    --action-ink: oklch(.975 .025 85);
+    --crescent: oklch(.54 .14 279);
+    --green: oklch(.50 .09 165);
+    --green-strong: oklch(.45 .09 165);
+    --amber: oklch(.52 .10 55);
+    --yellow: oklch(.52 .10 55);
+    --red: oklch(.52 .15 25);
+    --blue: oklch(.48 .10 260);
+    --cyan: oklch(.50 .08 205);
+    --purple: oklch(.47 .14 280);
+    --tint-green: oklch(.955 .03 168);
+    --tint-amber: oklch(.955 .035 58);
+    --tint-red: oklch(.955 .03 25);
+    --tint-blue: oklch(.955 .03 260);
+    --tint-cyan: oklch(.955 .03 205);
+    --tint-purple: oklch(.955 .03 280);
+    --pastel-green: oklch(.84 .085 168);
+    --pastel-amber: oklch(.86 .08 58);
+    --pastel-red: oklch(.80 .09 25);
+    --pastel-idle: oklch(.85 .018 var(--tone-h));
+    --gauge-track: oklch(.92 .02 var(--tone-h));
+    --zone-high: oklch(.945 .04 58);
+    --zone-emergency: oklch(.935 .04 25);
+    --gauge-hatch: oklch(.25 .05 var(--tone-h) / 16%);
+  }
+}
+
+* { scrollbar-color: var(--line-strong) var(--bg); }
+/* Chrome injects its own body font on extension pages, so the family is restated here.
+   The body stays transparent so the root's sky shows through at any content height;
+   ":root body" outranks the page layers' plain "body { background }" (see the note above). */
+:root body {
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-stretch: inherit;
+}
+button, input, select, textarea { border-radius: 8px; }
+
+@media (forced-colors: active) {
+  :root body { background: Canvas; }
+}

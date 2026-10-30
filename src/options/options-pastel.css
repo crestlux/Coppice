@@ -1,0 +1,58 @@
+/* Settings layout on the shared pastel tokens (../shared/pastel-tokens.css).
+   Same rules as the popup: periwinkle for the main action, ink for text, no decorative bars. */
+.brand-icon { width: 48px; height: 48px; margin: -4px; filter: none; }
+.page-header h1 { font-weight: 650; letter-spacing: -.01em; }
+
+/* Radius steps with depth: section 12, nested panels 10, rows and controls 8. */
+.section { border-radius: 12px; background: var(--surface); }
+.insight-card, .result-panel, .subpanel, .callout, .backup-fieldset { border-radius: 10px; background: var(--surface-quiet); }
+.row, .compact-item, .metric, .mini-result-list > div, .checks label, .backup-sections label { border-radius: 8px; }
+.checks label, .backup-sections label { background: var(--surface); }
+/* options.css still carries translucent dark fills from its first theme; these re-point the ones no other layer covers. */
+.setting-grid > label { border-color: var(--line); background: var(--surface-quiet); }
+.penalty-pill { background: var(--surface); }
+
+/* Current section reads as a soft periwinkle pill, matching the popup's selected states. */
+.options-nav a.is-active {
+  color: var(--accent);
+  background: var(--tint-accent);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.options-nav a.is-active::before { display: none; }
+
+/* Save buttons use the popup's main-action color. */
+.primary-button, #savePolicyButton, #saveAutomationButton, #saveAdvancedButton {
+  color: var(--action-ink);
+  border-color: var(--action-line);
+  background: var(--action);
+}
+.primary-button:hover:not(:disabled), #savePolicyButton:hover:not(:disabled), #saveAutomationButton:hover:not(:disabled), #saveAdvancedButton:hover:not(:disabled) {
+  color: var(--action-ink);
+  border-color: var(--action-line);
+  background: var(--action-hover);
+}
+.recovery-grid .row-actions button:first-child { border-color: var(--action-line); }
+
+.backup-fieldset legend { color: var(--muted); font-size: .8125rem; font-weight: 600; letter-spacing: normal; text-transform: none; }
+.disclosure > summary::marker { color: var(--muted); }
+
+@media (forced-colors: active) {
+  .options-nav a.is-active { color: CanvasText; background: Canvas; border-color: Highlight; outline: 1px solid Highlight; }
+  .primary-button, #savePolicyButton, #saveAutomationButton, #saveAdvancedButton { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+}
+
+/* Overview opens with the same headroom gauge as the popup. Notches take the panel colour. */
+.overview-headroom {
+  --notch: var(--surface-quiet);
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-quiet);
+}
+@media (forced-colors: active) {
+  .overview-headroom { border-color: CanvasText; background: Canvas; }
+}

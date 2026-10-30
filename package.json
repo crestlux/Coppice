@@ -1,0 +1,32 @@
+{
+  "name": "coppice",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "build:release": "vite build --mode release",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:browser": "playwright test",
+    "test:optimizer:sites": "node scripts/audit-optimizer-sites.mjs",
+    "test:optimizer:matrix": "node scripts/audit-optimizer-diverse.mjs --phase=matrix-release --workers=3",
+    "report:optimizer:matrix": "node scripts/summarize-optimizer-matrix.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.5.4",
+    "vite": "^6.4.5",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crestlux/Coppice.git"
+  },
+  "homepage": "https://github.com/crestlux/Coppice"
+}

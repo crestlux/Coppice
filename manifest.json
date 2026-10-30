@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Coppice",
+  "version": "0.1.0",
+  "minimum_chrome_version": "132",
+  "description": "Unload idle tabs without closing them. Local-first CPU/RAM-aware policies, tab protection, session recovery and network filtering.",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "offscreen",
+    "alarms",
+    "idle",
+    "system.memory",
+    "system.cpu",
+    "declarativeNetRequest",
+    "activeTab",
+    "scripting",
+    "debugger"
+  ],
+  "host_permissions": [],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "src/background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Coppice",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "options_page": "src/options/options.html",
+  "declarative_net_request": {
+    "rule_resources": []
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "short_name": "Coppice",
+  "homepage_url": "https://github.com/crestlux/Coppice"
+}

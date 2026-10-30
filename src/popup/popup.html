@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coppice</title>
+    <link rel="stylesheet" href="./popup.css" />
+    <link rel="stylesheet" href="../shared/ui.css" />
+    <link rel="stylesheet" href="./popup-refresh.css" />
+    <link rel="stylesheet" href="../shared/pastel-tokens.css" />
+    <link rel="stylesheet" href="../shared/headroom.css" />
+    <link rel="stylesheet" href="./popup-gauge.css" />
+    <link rel="stylesheet" href="./popup-rows.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+<header class="topbar">
+        <button
+          id="overviewBrandButton"
+          class="brand-row brand-home-button"
+          type="button"
+          aria-label="Overview"
+          title="Overview"
+        >
+          <img class="brand-icon" src="../../icons/icon128.png" alt="" aria-hidden="true" />
+          <span class="brand-copy">
+            <span class="brand-title">Coppice</span>
+            <span id="statusLine">Loading status...</span>
+          </span>
+        </button>
+        <div class="header-controls">
+          <button id="optionsButton" class="settings-icon-button" type="button" aria-label="All settings" title="All settings">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="m9.5 3-.6 2.2-1.4.8-2.2-.6-2.5 4.3 1.6 1.6v1.6l-1.6 1.6 2.5 4.3 2.2-.6 1.4.8.6 2.2h5l.6-2.2 1.4-.8 2.2.6 2.5-4.3-1.6-1.6v-1.6l1.6-1.6-2.5-4.3-2.2.6-1.4-.8L14.5 3Z" />
+              <circle cx="12" cy="12.1" r="3.2" />
+            </svg>
+          </button>
+          <div class="status-stack">
+          <div class="snooze-controls" aria-label="Snooze automatic cleanup">
+            <select id="snoozeDurationSelect" aria-label="Snooze duration">
+              <option value="15">15m</option>
+              <option value="30">30m</option>
+              <option value="60" selected>1h</option>
+              <option value="120">2h</option>
+              <option value="240">4h</option>
+              <option value="indefinite">Until resumed</option>
+              <option value="custom">Custom</option>
+            </select>
+            <button id="snoozeButton" class="snooze-button" type="button">Snooze</button>
+          </div>
+          <label class="snooze-custom" for="snoozeCustomMinutes">
+            <span>Minutes</span>
+            <input id="snoozeCustomMinutes" type="number" min="1" max="1440" step="1" value="60" aria-label="Custom snooze minutes" hidden />
+          </label>
+          <span id="snoozeUntilLabel" class="snooze-until" hidden></span>
+          </div>
+        </div>
+      </header>
+
+<section id="detailHeader" class="detail-header" aria-label="Detail navigation" hidden>
+        <button
+          id="backButton"
+          class="back-button"
+          type="button"
+          aria-label="Back to Overview"
+          aria-keyshortcuts="Escape"
+        >
+          <span class="back-arrow" aria-hidden="true">←</span>
+          <span class="back-copy">
+            <strong>Back to Overview</strong>
+          </span>
+        </button>
+        <div class="view-context">
+          <nav class="view-breadcrumb" aria-label="Breadcrumb">
+            <span>Overview</span>
+            <span aria-hidden="true">›</span>
+            <span id="viewKicker" aria-current="page">Dashboard</span>
+          </nav>
+          <h2 id="viewTitle" aria-live="polite">Overview</h2>
+        </div>
+      </section>
+
+<section id="overviewMetrics" class="metrics" aria-label="System status">
+<button id="headroomCard" class="metric-card resource-card headroom" type="button" data-view-target="resources" data-pressure="unknown">
+          <span class="headroom-head">
+            <span id="memoryMetric" class="headroom-figure">
+              <strong id="memoryAvailableMetric" class="headroom-value">-</strong>
+              <span id="memoryCapacityMetric" class="headroom-caption">free memory</span>
+            </span>
+            <span id="pressureBadge" class="pressure normal">Checking</span>
+          </span>
+          <span id="headroomGauge" class="headroom-gauge" aria-hidden="true">
+            <span class="headroom-fill"></span>
+          </span>
+          <span class="headroom-legend">
+            <span id="memoryUsedMetric">- used</span>
+            <span>CPU <span id="cpuMetric">-</span></span>
+          </span>
+        </button>
+</section>
+
+<section id="overviewActions" class="primary-cleanup" aria-label="Free up memory">
+<div class="cleanup-buttons"><button id="releaseButton" class="primary-action featured-action" type="button">Unload background tabs</button>
+<button id="undoDiscardButton" type="button">Undo last unload</button></div>
+<p>Tabs stay open and reload when you return. Save unfinished work first.</p>
+</section>
+
+<section id="overviewCommandCenter" class="global-command-center" aria-label="Find tabs and saved sessions">
+        <div class="command-palette-heading"><label for="commandSearchInput">Find a tab</label><kbd>Ctrl / ⌘ K</kbd></div>
+        <div class="command-search-shell">
+          <span class="command-search-icon" aria-hidden="true"></span>
+          <input
+            id="commandSearchInput"
+            type="search"
+            role="combobox"
+            aria-label="Search open tabs, saved sessions, and focus sets"
+            aria-autocomplete="list"
+            aria-controls="commandResults"
+            aria-expanded="false"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Search tabs, sessions, and focus sets..."
+          />
+          <button id="commandClearButton" class="command-clear" type="button" aria-label="Cancel search" hidden>
+            Cancel
+          </button>
+        </div>
+        <p id="commandHint" class="command-hint" hidden></p>
+        <div id="commandResults" class="command-results" role="listbox" aria-label="Command results" hidden></div>
+      </section>
+
+<section id="homeView" class="view-panel" data-view="home">
+<div class="home-sheet">
+<nav class="overview-stats" aria-label="Tab summary"><button class="metric-card" type="button" data-view-target="tabs">
+          <span>Tabs</span>
+          <strong id="tabMetric">-</strong>
+          <span id="tabMetricDetail" class="metric-detail">- ready</span>
+        </button>
+<button class="metric-card" type="button" data-view-target="protected">
+          <span>Protected</span>
+          <strong id="protectedMetric">-</strong>
+          <span id="protectedMetricDetail" class="metric-detail">- rule matched</span>
+        </button></nav>
+<div id="optimizerOverview" class="optimizer-overview">
+  <button id="optimizerOverviewLink" class="optimizer-overview-link" type="button" data-view-target="optimizer">
+    <span>Page optimizer</span>
+    <strong id="optimizerMode">Checking…</strong>
+    <small id="optimizerMetricDetail"></small>
+  </button>
+  <div class="optimizer-overview-actions">
+    <button id="optimizerOverviewAction" type="button" hidden>Enable all sites</button>
+    <button id="optimizerQuickRestore" type="button" hidden>Pause on this tab</button>
+    <button id="optimizerQuickExclude" type="button" hidden>Exclude site</button>
+  </div>
+</div>
+<details class="disclosure home-tools" id="moreTools">
+<summary>More tools</summary>
+<div class="disclosure-body">
+<nav class="tool-navigation" aria-label="Detailed tools"><button class="metric-card" type="button" data-view-target="discarded">
+          <span>Unloaded tabs</span>
+          <strong id="discardedMetric">-</strong>
+          <span id="discardedMetricDetail" class="metric-detail">No release estimate</span>
+        </button>
+<button class="metric-card" type="button" data-view-target="frozen">
+          <span>Frozen</span>
+          <strong id="frozenMetric">-</strong>
+          <span id="frozenMetricDetail" class="metric-detail">Chrome managed</span>
+        </button>
+<button class="metric-card" type="button" data-view-target="policy">
+          <span>Automatic cleanup</span>
+          <strong id="policyMode">-</strong>
+          <span id="policyMetricDetail" class="metric-detail">- threshold</span>
+        </button>
+<button class="metric-card" type="button" data-view-target="network">
+          <span>Network filtering</span>
+          <strong id="networkMode">-</strong>
+          <span id="networkMetricDetail" class="metric-detail">-</span>
+        </button>
+</nav>
+<div class="actions"><button id="closeDuplicatesButton" class="secondary-action" type="button">Find duplicate tabs</button>
+<button id="closeDiscardedButton" type="button">Close unloaded tabs</button>
+<button id="protectTabButton" type="button">Protect this tab</button>
+<button id="protectDomainButton" type="button">Protect this site</button>
+<button id="saveWindowButton" type="button">Save window and close</button></div>
+</div>
+</details>
+</div>
+</section>
+
+<section id="resourcesView" class="view-panel compact-view" data-view="resources" hidden>
+        <section class="resource-detail-grid" aria-label="Live resource measurements">
+          <article id="resourcePressureCard" class="resource-detail-card">
+            <span>Pressure</span>
+            <strong id="resourcePressureValue">Checking...</strong>
+            <small id="resourcePressureDetail">Checking…</small>
+          </article>
+          <article class="resource-detail-card">
+            <span>Memory (all apps)</span>
+            <strong id="resourceMemoryValue">-</strong>
+            <small id="resourceMemoryDetail">Waiting for a memory reading</small>
+          </article>
+          <article class="resource-detail-card">
+            <span>CPU</span>
+            <strong id="resourceCpuValue">-</strong>
+            <small id="resourceCpuDetail">Ready after the next reading</small>
+          </article>
+          <article class="resource-detail-card">
+            <span>Browser tabs</span>
+            <strong id="resourceTabsValue">-</strong>
+            <small id="resourceTabsDetail">Counting tabs…</small>
+          </article>
+        </section>
+      <section class="accurate-mode" aria-label="Accurate mode">
+          <div class="section-heading">
+            <h2>Measure tab memory</h2>
+            <span id="accurateModeStatus">Off</span>
+          </div>
+          <p class="help">Measures JavaScript memory only, not the tab’s total RAM. Chrome shows a debugging bar while it runs.</p>
+<div class="accurate-details">
+            <span id="accurateModeTarget">Open a website first</span>
+            <strong id="accurateModeMetric">Debugger permission is required for JS heap measurement.</strong>
+          </div>
+          <div class="button-row">
+            <button id="measureActiveTabButton" type="button">Measure this tab</button>
+            <button id="measureOpenTabsButton" type="button">Measure all tabs</button>
+            <button id="checkLeakButton" type="button">Check for leaks</button>
+          </div>
+        </section>
+<details class="disclosure"><summary>Diagnostics</summary><div class="disclosure-body"><section id="overviewIntelligence" class="intelligence-strip" aria-label="Resource intelligence">
+        <article id="powerIntelligence" class="intelligence-card power-intelligence">
+          <span class="intelligence-label"><i aria-hidden="true"></i>Battery</span>
+          <strong id="powerIntelligenceValue">Checking...</strong>
+          <small id="powerIntelligenceDetail">Waiting for battery status</small>
+        </article>
+        <article id="cpuIntelligence" class="intelligence-card cpu-intelligence">
+          <span class="intelligence-label"><i aria-hidden="true"></i>CPU</span>
+          <strong id="cpuIntelligenceValue">Unknown</strong>
+          <small id="cpuIntelligenceDetail">No current estimate</small>
+        </article>
+        <article id="rootCauseIntelligence" class="intelligence-card cause-intelligence">
+          <span class="intelligence-label"><i aria-hidden="true"></i>Likely cause</span>
+          <strong id="rootCauseIntelligenceValue">Checking pressure...</strong>
+          <small id="rootCauseIntelligenceDetail">Waiting for the first resource scan</small>
+        </article>
+        <article id="memorySaverIntelligence" class="intelligence-card coexistence-intelligence">
+          <span class="intelligence-label"><i aria-hidden="true"></i>Chrome Memory Saver</span>
+          <strong id="memorySaverIntelligenceValue">None unloaded by others</strong>
+          <small id="memorySaverIntelligenceDetail">No external unloads detected</small>
+        </article>
+      </section></div></details>
+</section>
+
+      <section id="tabsView" class="view-panel" data-view="tabs" hidden>
+        <div class="tab-tools">
+        <details id="focusModeDisclosure" class="tool-disclosure focus-mode-panel">
+          <summary class="section-heading">
+            <h2>Focus mode</h2>
+            <span id="focusModeStatus" class="status-pill">Off</span>
+          </summary>
+          <div class="focus-mode-row">
+            <span id="focusModeSummary">0 focused tabs</span>
+            <button id="focusModeToggleButton" type="button">Turn on Focus mode</button>
+          </div>
+          <div class="focus-set-create">
+            <input id="focusSetNameInput" type="text" maxlength="80" placeholder="Focus set name" aria-label="Focus set name" />
+            <button id="saveFocusSetButton" type="button">Save set</button>
+          </div>
+          <div id="focusSetList" class="focus-set-list"></div>
+        </details>
+
+        <details class="tool-disclosure performance-actions">
+          <summary class="section-heading">
+            <h2>Unload options</h2>
+            <span class="summary-note">By site or age</span>
+          </summary>
+          <div class="performance-action-grid">
+            <button id="discardAllBackgroundButton" class="primary-action" type="button">Unload all background tabs</button>
+            <button id="discardCurrentDomainButton" type="button">Unload this site</button>
+            <div class="inline-action-input" role="group" aria-label="Unload tabs older than a number of minutes">
+              <span>Older than</span>
+              <input id="discardOlderMinutes" type="number" min="1" max="43200" step="1" value="30" aria-label="Inactive minutes" />
+              <span>min</span>
+              <button id="discardOlderButton" type="button">Unload</button>
+            </div>
+          </div>
+          <div class="domain-rule-row">
+            <div>
+              <strong id="domainRuleTarget">Current domain</strong>
+              <small id="domainRuleStatus">No automatic domain rule</small>
+            </div>
+            <input id="domainRuleMinutes" type="number" min="1" max="43200" step="1" value="10" aria-label="Unload this site after minutes" />
+            <button id="saveDomainRuleButton" type="button">Save rule</button>
+            <button id="removeDomainRuleButton" type="button">Remove</button>
+          </div>
+        </details>
+        </div>
+
+        <section id="duplicatePreviewSection" class="duplicate-preview" aria-label="Duplicate tabs preview" hidden>
+          <div class="section-heading">
+            <h2>Duplicate tabs</h2>
+            <span id="duplicatePreviewSummary">No preview</span>
+          </div>
+          <div id="duplicatePreviewList" class="duplicate-preview-list"></div>
+          <div class="duplicate-actions">
+            <button id="confirmCloseDuplicatesButton" type="button">Close these tabs</button>
+            <button id="hideDuplicatePreviewButton" type="button">Hide</button>
+          </div>
+        </section>
+
+        <section class="candidates" aria-label="Open tabs">
+          <div class="candidate-heading">
+            <h2>Open tabs</h2>
+            <label>
+              Sort
+              <select id="candidateSortSelect">
+                <option value="priority">Priority</option>
+                <option value="memory">Memory</option>
+                <option value="lastUsed">Last used</option>
+                <option value="window">Window</option>
+                <option value="title">Title</option>
+              </select>
+            </label>
+          </div>
+          <ul id="candidateList" class="tab-list"></ul>
+        </section>
+      </section>
+
+      <section id="discardedView" class="view-panel" data-view="discarded" hidden>
+        <div class="view-toolbar">
+          <div><h2>Unloaded tabs</h2><span>Close tabs you no longer need</span></div>
+          <button id="closeAllDiscardedButton" type="button">Close all</button>
+        </div>
+        <ul id="discardedTabsList" class="tab-list"></ul>
+        <section class="release-summary" aria-label="System memory after the last unload">
+          <div class="release-summary-card">
+            <span>Available RAM change</span>
+            <strong id="releaseFreedMetric">No estimate</strong>
+            <small id="releaseFreedDetail">Includes other apps.</small>
+          </div>
+          <div class="release-summary-card">
+            <span>Last unload</span>
+            <strong id="releaseCountMetric">-</strong>
+            <small id="releaseSampleMetric">Measured 2 seconds after unloading.</small>
+          </div>
+        </section>
+        <section class="discard-verification" aria-label="Last unload check">
+          <div class="section-heading">
+            <h2>Unload check</h2>
+            <span id="discardVerificationStatus" class="status-pill">None yet</span>
+          </div>
+          <p id="discardVerificationSummary">No recent unloads.</p>
+          <ul id="discardAttemptList" class="attempt-list"></ul>
+        </section>
+      </section>
+
+      <section id="frozenView" class="view-panel" data-view="frozen" hidden>
+        <div class="view-toolbar">
+          <div><h2>Frozen tabs</h2><span>Chrome froze these tabs in the background.</span></div>
+          <button id="closeAllFrozenButton" type="button">Close all</button>
+        </div>
+        <ul id="frozenTabsList" class="tab-list"></ul>
+      </section>
+
+      <section id="protectedView" class="view-panel" data-view="protected" hidden>
+        <ul id="protectedTabsList" class="tab-list"></ul>
+      </section>
+
+      <section id="policyView" class="view-panel" data-view="policy" hidden>
+        <section class="quick-settings policy-settings" aria-label="Policy settings">
+          <label>
+            Cleanup mode
+            <select id="policyModeSelect">
+              <option value="manual">Manual only</option>
+              <option value="conservative">Conservative</option>
+              <option value="balanced">Balanced</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="pressureAdaptive">Pressure adaptive</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label>
+            Unload after (minutes)
+            <input id="customThresholdMinutes" type="number" min="1" max="10080" step="1" />
+          </label>
+          <p id="policyFocusNotice" class="policy-lock-note" hidden>
+            Focus mode is on and sets the cleanup mode until you turn it off.
+          </p>
+        </section>
+      </section>
+
+      <section id="networkView" class="view-panel" data-view="network" hidden>
+        <section class="quick-settings network-settings" aria-label="Network settings">
+          <label>
+            Mode
+            <select id="networkDietModeSelect">
+              <option value="off">Off</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+        </section>
+        <section class="info-panel" aria-label="What Light mode blocks">
+          <h3>Light mode blocks</h3>
+          <ul>
+            <li>Third-party ping requests</li>
+            <li>Google Analytics requests</li>
+            <li>Google Tag Manager scripts</li>
+            <li>DoubleClick scripts, images, frames, and XHR</li>
+          </ul>
+          <p>Low battery can turn on Light mode for a while.</p>
+        </section>
+      </section>
+
+      <section id="optimizerView" class="view-panel" data-view="optimizer" hidden>
+        <section class="experimental-optimizer" aria-label="Page optimizer">
+          <div class="section-heading">
+            <div class="optimizer-heading-copy">
+              <span class="optimizer-beta">Beta</span>
+              <h2>Page optimizer</h2>
+            </div>
+            <span id="optimizerStatus" class="status-pill">Checking…</span>
+          </div>
+          <div class="optimizer-details">
+            <span id="optimizerTarget">Open a website first</span>
+            <strong id="optimizerMetric">Open a regular web page to use the optimizer.</strong>
+          </div>
+          <div class="optimizer-actions">
+            <button id="optimizerAllSitesButton" type="button" aria-describedby="optimizerAutoNote">Optimize all sites automatically</button>
+            <button id="optimizerToggleButton" type="button">Optimize this tab</button>
+            <button id="optimizerSiteToggleButton" type="button">Always optimize this site</button>
+            <button id="optimizerResetButton" type="button">Reset all</button>
+          </div>
+          <p id="optimizerAutoNote" class="optimizer-site-note">Chrome will ask for website access.</p>
+          <div id="optimizerItemList" class="optimizer-item-list"></div>
+        </section>
+      </section>
+
+      <p id="messageLine" class="message" role="status"></p>
+    </main>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

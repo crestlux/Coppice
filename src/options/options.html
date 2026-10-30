@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coppice Settings</title>
+    <link rel="stylesheet" href="./options.css" />
+    <link rel="stylesheet" href="../shared/ui.css" />
+    <link rel="stylesheet" href="./options-refresh.css" />
+    <link rel="stylesheet" href="../shared/pastel-tokens.css" />
+    <link rel="stylesheet" href="../shared/headroom.css" />
+    <link rel="stylesheet" href="./options-pastel.css" />
+  </head>
+  <body>
+    <main class="options-shell" aria-busy="true">
+      <header class="page-header">
+        <div class="header-brand">
+          <img class="brand-icon" src="../../icons/icon128.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>Coppice</h1>
+            <p id="statusLine" role="status" aria-live="polite">Loading settings...</p>
+          </div>
+        </div>
+        <button id="refreshButton" type="button">Refresh</button>
+      </header>
+
+      <nav class="options-nav" aria-label="Settings sections"><a class="is-active" href="#intelligenceHeading" aria-current="page">Overview</a>
+<div class="nav-group"><span class="nav-group-label">Cleanup and protection</span>
+<a href="#policyHeading">Automatic cleanup</a>
+<a href="#automationHeading">Power and behavior</a>
+<a href="#windowPolicyHeading">Window policies</a>
+<a href="#rulesHeading">Protected tabs</a>
+<a href="#networkHeading">Network filtering</a></div>
+<div class="nav-group"><span class="nav-group-label">Save and restore</span>
+<a href="#sessionsHeading">Saved sessions</a>
+<a href="#recoveryHeading">Recovery</a>
+<a href="#backupHeading">Backup</a>
+<a href="#syncHeading">Sync</a></div>
+<div class="nav-group"><span class="nav-group-label">Diagnostics</span>
+<a href="#policyLabHeading">Policy simulator</a>
+<a href="#logHeading">Activity log</a>
+<a href="#advancedHeading">Advanced</a></div>
+</nav>
+
+      <section class="section hero-section is-active" aria-labelledby="intelligenceHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="intelligenceHeading">Resource overview</h2>
+          </div>
+        </div>
+        <div id="overviewHeadroom" class="headroom overview-headroom" data-pressure="unknown" aria-live="polite">
+          <div class="headroom-head">
+            <div class="headroom-figure">
+              <strong id="overviewHeadroomValue" class="headroom-value">-</strong>
+              <span id="overviewHeadroomCaption" class="headroom-caption">free memory</span>
+            </div>
+            <span id="overviewPressureBadge" class="pressure">Checking</span>
+          </div>
+          <span id="overviewHeadroomGauge" class="headroom-gauge" aria-hidden="true"><span class="headroom-fill"></span></span>
+          <div class="headroom-legend">
+            <span id="overviewHeadroomUsed">- used</span>
+            <span>CPU <span id="overviewHeadroomCpu">-</span></span>
+          </div>
+        </div>
+        <div class="insight-grid" aria-live="polite">
+          <article class="insight-card accent-blue">
+            <span class="insight-label">Battery</span>
+            <strong id="powerStateSummary">Waiting for a battery sample</strong>
+            <p id="powerStateDetail"></p>
+          </article>
+          <article class="insight-card accent-amber">
+            <span class="insight-label">Likely cause</span>
+            <strong id="rootCauseSummary">Insufficient evidence</strong>
+            <p id="rootCauseDetail"></p>
+          </article>
+          <article class="insight-card accent-purple">
+            <span class="insight-label">Chrome Memory Saver</span>
+            <strong id="memorySaverSummary">Nothing unloaded by others</strong>
+            <p id="memorySaverDetail">Events may come from Chrome or another extension.</p>
+          </article>
+          <article class="insight-card accent-green">
+            <span class="insight-label">CPU</span>
+            <strong id="cpuPolicySummary">Waiting for CPU data</strong>
+            <p id="cpuPolicyDetail"></p>
+          </article>
+        </div>
+        <div class="subpanel learned-panel">
+          <div class="subpanel-heading">
+            <div>
+              <h3>Sites you reopen frequently</h3>
+              <p class="help">These sites stay loaded longer.</p>
+            </div>
+            <span id="learnedDomainCount" class="count-pill">0 sites</span>
+          </div>
+          <div id="learnedDomainsList" class="compact-list"></div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="policyHeading" inert>
+        <h2 id="policyHeading">Automatic cleanup</h2>
+<p class="help">Protected tabs stay loaded.</p>
+        <p id="focusPolicyNotice" class="help focus-policy-notice" hidden>
+          Focus mode is on. Turn it off in the popup to change the cleanup mode.
+        </p>
+        <div class="grid two"><label>
+            Cleanup mode
+            <select id="policyMode">
+              <option value="manual">Manual only</option>
+              <option value="conservative">Conservative, 30 min</option>
+              <option value="balanced">Balanced, 15 min</option>
+              <option value="aggressive">Aggressive, 5 min</option>
+              <option value="pressureAdaptive">Pressure Adaptive, dynamic</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+<label>
+            Unload after (minutes)
+            <input id="inactiveThresholdMinutes" type="number" min="1" max="10080" step="1" />
+            <span class="field-help">Pressure adaptive sets this for you.</span>
+          </label></div>
+<details class="disclosure"><summary>Advanced limits and memory thresholds</summary><div class="disclosure-body grid two"><label>
+            Check every (minutes)
+            <input id="scanIntervalMinutes" type="number" min="1" max="1440" step="1" />
+          </label>
+<label>
+            Max tabs per automatic unload
+            <input id="maxAutoDiscardsPerScan" type="number" min="1" max="100" step="1" />
+          </label>
+<label>
+            Max tabs per manual unload
+            <input id="maxManualDiscardsPerAction" type="number" min="1" max="1000" step="1" />
+          </label>
+<label>
+            High when free memory is below (%)
+            <input id="memoryHighAvailableRatio" type="number" min="1" max="100" step="any" />
+            <span class="field-help">Capped at 4 GiB.</span>
+          </label>
+<label>
+            Emergency when free memory is below (%)
+            <input id="memoryEmergencyAvailableRatio" type="number" min="1" max="100" step="any" />
+            <span class="field-help">Capped at 1 GiB.</span>
+          </label></div></details>
+        <div class="checks">
+          <label><input id="protectPinned" type="checkbox" /> Protect pinned tabs</label>
+          <label><input id="protectAudible" type="checkbox" /> Protect audible tabs</label>
+          <label for="protectUnsavedWork"><input id="protectUnsavedWork" type="checkbox" aria-describedby="workProtectionHelp" /> Protect unsaved work</label>
+          <label title="Chrome can’t unload the tab you’re using, so this is always on.">
+            <input id="protectActive" type="checkbox" checked disabled /> Always protect the active tab
+          </label>
+          <label><input id="protectIncognito" type="checkbox" /> Protect incognito tabs</label>
+          <label><input id="respectAutoDiscardableFalse" type="checkbox" /> Respect tabs marked as not unloadable</label>
+        </div>
+        <p id="workProtectionHelp" class="field-help">Keeps a tab loaded while it holds text you typed and haven’t saved or sent. Checking pages needs website access. Pages Coppice can’t check skip routine cleanup and unload only when you ask or memory runs low. Typed text is never stored.</p>
+        <div class="button-row">
+          <button id="grantWorkProtectionAccessButton" type="button" aria-describedby="workProtectionAccessStatus" hidden>Allow website checks</button>
+          <span id="workProtectionAccessStatus" class="field-help" role="status">Checking website access…</span>
+        </div>
+        <button id="savePolicyButton" type="button">Save policy</button>
+      </section>
+
+      <section class="section" aria-labelledby="automationHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="automationHeading">Power and behavior</h2>
+          </div>
+        </div>
+        <details class="disclosure"><summary>Current decision</summary><div class="disclosure-body"><div id="automationPlan" aria-live="polite"></div></div></details>
+        <div class="grid two setting-grid">
+          <label>
+            Power policy
+            <select id="powerPolicyMode">
+              <option value="off">Off</option>
+              <option value="batterySaver">Battery Saver</option>
+              <option value="lowBatteryAggressive">Low-battery aggressive</option>
+            </select>
+            <span class="field-help">Low battery may temporarily enable Light network filtering.</span>
+          </label>
+          <label>
+            Low battery threshold (%)
+            <input id="lowBatteryThreshold" type="number" min="5" max="100" step="any" />
+
+          </label>
+          <label>
+            Reopen window (minutes)
+            <input id="quickReactivateMinutes" type="number" min="1" max="120" step="1" />
+            <span class="field-help">Tabs reopened within this time stay loaded longer.</span>
+          </label>
+          <label>
+            Snapshot every (minutes)
+            <input id="timeMachineIntervalMinutes" type="number" min="1" max="1440" step="1" />
+          </label>
+          <label>
+            Snapshots to keep
+            <input id="timeMachineRetention" type="number" min="1" max="1000" step="1" />
+          </label>
+          <label>
+            Recovery capsules to keep
+            <input id="recoveryCapsuleLimit" type="number" min="1" max="500" step="1" />
+          </label>
+        </div>
+        <div class="checks feature-checks">
+          <label><input id="autoMergeDuplicateTabs" type="checkbox" /> Switch to an open tab instead of opening a duplicate</label>
+          <label><input id="discardLearningEnabled" type="checkbox" /> Learn from tabs I reopen or undo</label>
+          <label><input id="timeMachineEnabled" type="checkbox" /> Take Time Machine snapshots</label>
+        </div>
+        <div class="callout info-callout">
+          <strong>Duplicates</strong>
+          <span>Opening a page that is already open switches to that tab and closes the new one.</span>
+        </div>
+        <button id="saveAutomationButton" class="primary-button" type="button">Save power and behavior</button>
+      </section>
+
+      <section class="section" aria-labelledby="policyLabHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="policyLabHeading">Policy simulator</h2>
+          </div>
+        </div>
+        <p class="help">Simulation does not save settings or unload tabs.</p>
+        <div class="button-row">
+          <button id="simulatePolicyButton" class="primary-button" type="button">Run simulation</button>
+          <button id="effectReportButton" type="button">Show last 24 hours</button>
+        </div>
+        <div class="lab-grid">
+          <article class="result-panel" aria-labelledby="simulationResultHeading">
+            <div class="subpanel-heading">
+              <h3 id="simulationResultHeading">Simulation result</h3>
+              <span id="simulationTimestamp" class="muted-pill">Not run</span>
+            </div>
+            <div id="simulationResult" class="empty-state" aria-live="polite">Run a simulation to see which tabs would be unloaded.</div>
+          </article>
+          <article class="result-panel" aria-labelledby="effectReportHeading">
+            <div class="subpanel-heading">
+              <h3 id="effectReportHeading">Last 24 hours</h3>
+              <span id="effectReportTimestamp" class="muted-pill">Not generated</span>
+            </div>
+            <div id="effectReportResult" class="empty-state" aria-live="polite">See the last 24 hours of pressure, unloads and changes in available system RAM.</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="windowPolicyHeading" inert>
+        <h2 id="windowPolicyHeading">Window policies</h2>
+        <p class="help">Give an open window its own cleanup mode.</p>
+        <div id="windowPolicyList" class="list"></div>
+      </section>
+
+      <section class="section" aria-labelledby="rulesHeading" inert>
+        <h2 id="rulesHeading">Protected tabs</h2>
+        <form id="addRuleForm" class="inline-form">
+          <select id="newRuleType" aria-label="Protection rule type">
+            <option value="domain">Domain</option>
+            <option value="urlPattern">URL pattern</option>
+          </select>
+          <input id="newRuleValue" type="text" aria-label="Protection rule value" placeholder="example.com or https://*.example.com/*" />
+          <button type="submit">Add rule</button>
+        </form>
+        <div id="rulesList" class="list"></div>
+      </section>
+
+      <section class="section" aria-labelledby="networkHeading" inert>
+        <h2 id="networkHeading">Network filtering</h2>
+        <label class="narrow">
+          Mode
+          <select id="networkDietMode">
+            <option value="off">Off</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+        <p class="help">Light mode blocks selected tracking requests. Low battery may temporarily enable it.</p>
+      </section>
+
+      <section class="section" aria-labelledby="sessionsHeading" inert>
+        <h2 id="sessionsHeading">Saved sessions</h2>
+        <div class="checks">
+          <label><input id="includeActive" type="checkbox" /> Include active tab when saving</label>
+          <label><input id="includePinned" type="checkbox" /> Include pinned tabs when saving</label>
+        </div>
+        <div class="button-row">
+          <button id="saveWindowButton" type="button">Save window and close</button>
+          <button id="saveGroupButton" type="button">Save group and close</button>
+          <button id="saveSelectionButton" type="button">Save selected tabs and close</button>
+        </div>
+        <div id="sessionsList" class="list"></div>
+        <div class="json-tools">
+          <textarea id="sessionsJson" spellcheck="false" aria-label="Sessions import and export JSON" placeholder="Paste exported sessions JSON, { &quot;sessions&quot;: [...] }, a single session, or a list of URLs"></textarea>
+          <div class="button-row">
+            <button id="exportSessionsButton" type="button">Export sessions</button>
+            <button id="importSessionsButton" type="button">Import sessions</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="recoveryHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="recoveryHeading">Recovery</h2>
+          </div>
+          <button id="captureTimelineButton" type="button">Take snapshot now</button>
+        </div>
+
+        <div class="recovery-grid">
+          <article class="subpanel">
+            <div class="subpanel-heading">
+              <h3>Recovery capsules</h3>
+              <span id="capsuleCount" class="count-pill">0</span>
+            </div>
+            <p class="help">Tabs saved before cleanup or closing.</p>
+            <div id="recoveryCapsulesList" class="list"></div>
+          </article>
+          <article class="subpanel history-panel timeline-panel">
+            <div class="subpanel-heading">
+              <h3>Time Machine</h3>
+              <span id="timelineCount" class="count-pill">0</span>
+            </div>
+
+            <div id="timelineList" class="list history-scroll timeline-scroll" role="region" aria-label="Time Machine snapshots"></div>
+          </article>
+          <article class="subpanel recovery-wide">
+            <div class="subpanel-heading">
+              <h3>Session trash</h3>
+              <span id="trashCount" class="count-pill">0</span>
+            </div>
+            <p class="help">Deleted sessions wait here until you restore or remove them.</p>
+            <div id="sessionTrashList" class="list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="backupHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="backupHeading">Backup</h2>
+          </div>
+        </div>
+        <p class="help">Replace overwrites the selected sections. Merge keeps existing data where possible.</p>
+        <fieldset class="backup-fieldset">
+          <legend>Backup sections</legend>
+          <div class="backup-sections">
+            <label><input type="checkbox" data-backup-section="settings" checked /> Settings</label>
+            <label><input type="checkbox" data-backup-section="protectionRules" checked /> Protection rules</label>
+            <label><input type="checkbox" data-backup-section="focusSets" checked /> Focus sets</label>
+            <label><input type="checkbox" data-backup-section="sessions" checked /> Saved sessions</label>
+            <label><input type="checkbox" data-backup-section="windowPolicies" checked /> Window policies</label>
+            <label><input type="checkbox" data-backup-section="discardLog" checked /> Activity log</label>
+            <label><input type="checkbox" data-backup-section="discardLearning" checked /> Learned domains</label>
+            <label><input type="checkbox" data-backup-section="externalDiscardObservations" checked /> Chrome Memory Saver history</label>
+            <label><input type="checkbox" data-backup-section="recoveryCapsules" checked /> Recovery capsules</label>
+            <label><input type="checkbox" data-backup-section="sessionTimeline" checked /> Time Machine</label>
+            <label><input type="checkbox" data-backup-section="sessionTrash" checked /> Session trash</label>
+            <label><input type="checkbox" data-backup-section="effectHistory" checked /> Effect history</label>
+          </div>
+        </fieldset>
+        <textarea id="backupJson" class="large-json" spellcheck="false" aria-label="Backup JSON" placeholder="Paste a Coppice backup to import."></textarea>
+        <div class="button-row backup-actions">
+          <button id="exportBackupButton" class="primary-button" type="button">Export backup</button>
+          <label class="inline-select-label">
+            Import mode
+            <select id="backupImportMode">
+              <option value="merge">Merge with current data</option>
+              <option value="replace">Replace selected sections</option>
+            </select>
+          </label>
+          <button id="importBackupButton" type="button">Import backup</button>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="syncHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="syncHeading">Sync</h2>
+          </div>
+          <span id="syncStatusBadge" class="section-badge">Disabled</span>
+        </div>
+        <p class="help">Pull replaces selected rules and Focus Sets, including deletions. Sessions, logs and recovery history stay on this device.</p>
+        <div class="checks feature-checks">
+          <label><input id="syncEnabled" type="checkbox" /> Enable selective sync</label>
+          <label><input id="syncSettings" type="checkbox" /> Settings</label>
+          <label><input id="syncProtectionRules" type="checkbox" /> Protection rules</label>
+          <label><input id="syncFocusSets" type="checkbox" /> Focus sets</label>
+        </div>
+        <div id="syncStatusDetail" class="callout neutral-callout">No synchronization has run yet.</div>
+        <div class="button-row">
+          <button id="saveSyncButton" class="primary-button" type="button">Save sync choices</button>
+          <button id="pushSyncButton" type="button">Upload to Chrome Sync</button>
+          <button id="pullSyncButton" type="button">Download from Chrome Sync</button>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="logHeading" inert>
+        <div class="section-heading">
+          <div>
+            <h2 id="logHeading">Activity log</h2>
+          </div>
+          <span class="section-badge">Newest 80 entries</span>
+        </div>
+        <div class="button-row">
+          <button id="clearLogButton" type="button">Clear log</button>
+          <button id="copyLogButton" type="button">Copy as JSON</button>
+        </div>
+        <textarea id="logJson" class="log-json" spellcheck="false" aria-label="Activity log JSON" placeholder="" readonly hidden></textarea>
+        <div class="subpanel history-panel log-panel">
+          <div class="subpanel-heading">
+            <h3>Unload history</h3>
+
+          </div>
+          <div id="logList" class="list history-scroll log-scroll" role="region" aria-label="Activity log entries" tabindex="0"></div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="advancedHeading" inert>
+        <h2 id="advancedHeading">Advanced</h2>
+        <div class="grid two">
+          <label>
+            Activity log entries to keep
+            <input id="keepDiscardLogLimit" type="number" min="1" max="10000" step="1" />
+          </label>
+          <label>
+            Saved sessions to keep
+            <input id="keepSessionLimit" type="number" min="1" max="5000" step="1" />
+          </label>
+          <label>
+            High CPU at (%)
+            <input id="cpuHighRatio" type="number" min="1" max="100" step="any" />
+          </label>
+        </div>
+        <div class="checks">
+          <label><input id="showBadge" type="checkbox" /> Show pressure badge</label>
+          <label><input id="privacyMode" type="checkbox" /> Privacy mode for the activity log</label>
+        </div>
+        <button id="saveAdvancedButton" type="button">Save advanced settings</button>
+      </section>
+    </main>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

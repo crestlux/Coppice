@@ -1,0 +1,97 @@
+/* Headroom gauge shared by the popup and the settings overview.
+   This file is bundled into the shared chunk that loads before each page's CSS, so selectors
+   carry enough specificity to outrank page rules such as ".metrics span" or ".pressure.paused". */
+.headroom { --signal: var(--pastel-idle); --signal-edge: var(--muted-soft); }
+.headroom[data-pressure="normal"] { --signal: var(--pastel-green); --signal-edge: var(--green); }
+.headroom:is([data-pressure="watch"], [data-pressure="high"], [data-pressure="recovering"]) { --signal: var(--pastel-amber); --signal-edge: var(--amber); }
+.headroom[data-pressure="emergency"] { --signal: var(--pastel-red); --signal-edge: var(--red); }
+
+.headroom .headroom-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.headroom .headroom-figure { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 0; }
+.headroom .headroom-head .headroom-value {
+  color: var(--text-strong);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.headroom .headroom-head .headroom-caption { color: var(--muted); font-size: .875rem; font-weight: 400; line-height: 1.4; }
+
+.headroom .headroom-head .pressure {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-strong);
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.headroom .headroom-head .pressure::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: inset 0 0 0 1.5px var(--signal-edge);
+}
+/* Snoozed: the dot becomes the icon's crescent, the same moon that means "resting". */
+.headroom[data-pressure="paused"] .headroom-head .pressure::before { background: transparent; box-shadow: inset 3px -2px 0 0 var(--crescent); }
+
+/* Track tints warm toward the thresholds; hatching marks where cleanup pressure begins. */
+.headroom .headroom-gauge {
+  position: relative;
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(135deg, var(--gauge-hatch) 0 2px, transparent 2px 6px)
+      right / calc((1 - var(--high, .85)) * 100%) 100% no-repeat,
+    linear-gradient(to right,
+      var(--gauge-track) 0 calc(var(--high, .85) * 100%),
+      var(--zone-high) 0 calc(var(--emergency, .92) * 100%),
+      var(--zone-emergency) 0);
+}
+/* A deep leading edge keeps the pastel fill readable against the pale track. */
+.headroom .headroom-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--signal);
+  box-shadow: inset -2px 0 0 var(--signal-edge);
+  transform: translateX(calc((var(--used, 0) - 1) * 100%));
+}
+.headroom .headroom-gauge.is-live .headroom-fill { transition: transform 700ms cubic-bezier(.2, .7, .2, 1); }
+/* Threshold notches cut through the fill so High and Emergency stay legible at any level. */
+.headroom .headroom-gauge::before,
+.headroom .headroom-gauge::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  width: 2px;
+  background: var(--notch, var(--bg));
+}
+.headroom .headroom-gauge::before { left: calc(var(--high, .85) * 100% - 1px); }
+.headroom .headroom-gauge::after { left: calc(var(--emergency, .92) * 100% - 1px); }
+
+.headroom .headroom-legend { display: flex; justify-content: space-between; gap: 12px; }
+.headroom .headroom-legend span { color: var(--muted); font-size: .875rem; font-weight: 400; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.headroom .headroom-legend > span:first-child { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .headroom .headroom-gauge.is-live .headroom-fill { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .headroom .headroom-gauge { border: 1px solid CanvasText; background: Canvas; }
+  .headroom .headroom-fill { forced-color-adjust: none; background: Highlight; box-shadow: none; }
+  .headroom .headroom-gauge::before, .headroom .headroom-gauge::after { forced-color-adjust: none; background: CanvasText; }
+  .headroom .headroom-head .pressure::before { forced-color-adjust: none; background: CanvasText; box-shadow: none; }
+}
