@@ -13,16 +13,12 @@
   <img alt="Manifest V3" src="https://img.shields.io/badge/Manifest-V3-5f62be" />
   <img alt="Chrome 132 or later" src="https://img.shields.io/badge/Chrome-132%2B-5f62be" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3f9474" />
-  <img alt="Local by default" src="https://img.shields.io/badge/data-local%20by%20default-d98a6a" />
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-3f9474" /></a>
 </p>
 
-<p align="center">
-  <a href="media/demo.mp4"><img src="media/demo.gif" width="820" alt="Demo: unloading eligible background tabs and displaying the change in available system memory, while tabs stay in the tab strip" /></a>
-  <br />
-  <sub><a href="media/demo.mp4">Watch the full 46-second demo</a></sub>
-</p>
-<!-- For an inline player like a video README, drag media/demo.mp4 into GitHub's README editor and replace the block above with the generated https://github.com/user-attachments/assets/... URL on its own line. -->
+https://github.com/user-attachments/assets/187414d1-4c55-4fd2-a7f4-9fa2955d7f98
+
+<!-- The video above is media/demo.mp4 uploaded to GitHub, which plays only user-attachments videos inline. After re-recording, upload the new file the same way and replace the link. -->
 
 ## <img src="media/icons/overview.svg" width="24" height="24" alt="" /> Overview
 
@@ -39,7 +35,7 @@
 Memory release depends on the pages, protection rules and Chrome version. The popup reports system-wide changes, which include other apps, so it cannot attribute all of that change to Coppice.
 
 <p align="center">
-  <img src="media/popup-light-dark.png" width="820" alt="Coppice popup in light and dark themes: free memory with a pressure gauge, the Unload background tabs button, tab search, and a list with Tabs, Protected, Page optimizer and More tools" />
+  <img src="media/demo.gif" width="420" alt="The Coppice popup with memory at High: Unload background tabs is pressed, the gauge turns Steady, and the result line reports the available RAM that came back" />
 </p>
 
 ## <img src="media/icons/installation.svg" width="24" height="24" alt="" /> Installation
@@ -74,6 +70,10 @@ Need a quiet hour? **Snooze** pauses automatic cleanup for the time you pick. Ma
 ## <img src="media/icons/features.svg" width="24" height="24" alt="" /> Features
 
 ### The popup
+
+<p align="center">
+  <img src="media/popup-light-dark.png" width="820" alt="Coppice popup in light and dark themes: free memory with a pressure gauge, the Unload background tabs button, tab search, and a list with Tabs, Protected, Page optimizer and More tools" />
+</p>
 
 | Part | What it does |
 | --- | --- |

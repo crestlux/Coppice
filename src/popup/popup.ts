@@ -51,7 +51,7 @@ import {
   type PopupView
 } from "./popupNavigation";
 import { presentPressureRootCause } from "./resourceIntelligencePresentation";
-import { paintHeadroom, presentHeadroom } from "../shared/headroomPresentation";
+import { headroomLabel, paintHeadroom, presentHeadroom } from "../shared/headroomPresentation";
 import { optimizerMetricText } from "./optimizerPresentation";
 
 interface PopupState {
@@ -370,7 +370,7 @@ function getInput(id: string): HTMLInputElement {
 
 // Results fade after a moment; errors stay longer; a progress line ("Unload background tabs...") stays
 // until its action reports back.
-const MESSAGE_VISIBLE_MS = 8_000;
+const MESSAGE_VISIBLE_MS = 5_000;
 const ERROR_VISIBLE_MS = 20_000;
 let messageTimer: number | undefined;
 
@@ -2176,9 +2176,12 @@ function render(data: PopupState, optimizerRevision = optimizerMutationRevision)
   pruneTabAccurateMetrics(decisions);
   elements.statusLine.textContent = `Updated ${new Date(pressure.sampledAt).toLocaleTimeString()}`;
   const snoozed = isSnoozed(state.settings);
-  elements.pressureBadge.textContent = snoozed ? "Paused" : pressure.memorySampleValid === false ? "Unknown" : humanizeMode(pressure.adaptive?.stage ?? pressure.level);
-  elements.pressureBadge.className = snoozed ? "pressure paused" : `pressure ${pressure.level}`;
-  renderHeadroom(presentHeadroom(pressure, state.settings, snoozed));
+  // The label names the same state the gauge is colored by (and the toolbar badge shows), so a low reading
+  // reads High at once instead of the stage's "Watch" while pressure is still being confirmed.
+  const headroom = presentHeadroom(pressure, state.settings, snoozed);
+  elements.pressureBadge.textContent = headroomLabel(headroom.state);
+  elements.pressureBadge.className = `pressure ${headroom.state}`;
+  renderHeadroom(headroom);
   elements.cpuMetric.textContent = pressure.cpuUsageRatio == null ? "Measuring…" : formatPercent(pressure.cpuUsageRatio);
   elements.tabMetric.textContent = String(pressure.tabCount);
   const measuredTabCount = decisions.filter(decision => {
