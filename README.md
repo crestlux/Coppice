@@ -16,7 +16,7 @@
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-3f9474" /></a>
 </p>
 
-https://github.com/user-attachments/assets/75fb8850-2f96-4aac-8a34-fde095f29d3c
+https://github.com/user-attachments/assets/65381e78-2e29-45a5-a0d0-c685b2a46d7d
 
 <!-- The video above is media/demo.mp4 uploaded to GitHub, which plays only user-attachments videos inline. After re-recording, upload the new file the same way and replace the link. -->
 
