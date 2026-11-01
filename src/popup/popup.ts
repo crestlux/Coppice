@@ -1,5 +1,6 @@
 import { sendAppMessage } from "../shared/messages";
 import { DEFAULT_SETTINGS } from "../shared/constants";
+import { readMigratedTabSort } from "../shared/legacyNames";
 import { optimizerItemStatuses } from "../shared/optimizerCatalog";
 import { ALL_OPTIMIZER_ORIGINS } from "../shared/optimizerAccess";
 import { optimizerItemMetricText, optimizerOverview } from "./optimizerPresentation";
@@ -18,13 +19,13 @@ import type {
   DuplicateTabGroupPreview,
   DuplicateTabsPreviewResult,
   DuplicateTabsResult,
-  ExperimentalOptimizerItemId,
-  ExperimentalOptimizerStatus,
-  ExperimentalOptimizerToggleResult,
+  PageOptimizerItemId,
+  PageOptimizerStatus,
+  PageOptimizerToggleResult,
   FocusSetApplyResult,
   MemoryReleaseEstimate,
   SkipReason,
-  NetworkDietMode,
+  NetworkFilteringMode,
   OpenTabsAccurateMetricsResult,
   PolicyMode,
   PressureSnapshot,
@@ -61,7 +62,7 @@ interface PopupState {
   decisions: DiscardDecision[];
   accurateMode?: AccurateModeStatus;
   currentTabProtection?: CurrentTabProtectionStatus;
-  experimentalOptimizerStatus?: ExperimentalOptimizerStatus;
+  pageOptimizerStatus?: PageOptimizerStatus;
 }
 
 type ScanResult = PopupState & { discardedCount: number };
@@ -183,7 +184,7 @@ const elements = {
   optimizerMetricDetail: getElement("optimizerMetricDetail"),
   policyModeSelect: getSelect("policyModeSelect"),
   customThresholdMinutes: getInput("customThresholdMinutes"),
-  networkDietModeSelect: getSelect("networkDietModeSelect"),
+  networkFilteringModeSelect: getSelect("networkFilteringModeSelect"),
   accurateModeStatus: getElement("accurateModeStatus"),
   accurateModeTarget: getElement("accurateModeTarget"),
   accurateModeMetric: getElement("accurateModeMetric"),
@@ -276,7 +277,7 @@ let previewedDuplicateTabIds: number[] = [];
 const HIGH_MEMORY_BYTES = 500 * 1024 * 1024;
 const CRITICAL_MEMORY_BYTES = 1024 * 1024 * 1024;
 const MAX_SNOOZE_MINUTES = 1440;
-const TAB_SORT_STORAGE_KEY = "resourceGovernor.tabSortMode";
+const TAB_SORT_STORAGE_KEY = "coppice.tabSortMode";
 const TAB_MEASUREMENT_STALE_MS = 5 * 60_000;
 const COMMAND_RESULT_LIMIT = 14;
 const EXTERNAL_DISCARD_WINDOW_MS = 24 * 60 * 60_000;
@@ -300,7 +301,7 @@ const DEFAULT_ACCURATE_MODE_STATUS: AccurateModeStatus = {
   debuggerPermissionGranted: false
 };
 
-const DEFAULT_OPTIMIZER_STATUS: ExperimentalOptimizerStatus = {
+const DEFAULT_OPTIMIZER_STATUS: PageOptimizerStatus = {
   enabledInSettings: false,
   allSitesEnabled: false,
   allSitesAccessGranted: false,
@@ -317,7 +318,7 @@ const DEFAULT_OPTIMIZER_STATUS: ExperimentalOptimizerStatus = {
 };
 
 let currentAccurateModeStatus: AccurateModeStatus = DEFAULT_ACCURATE_MODE_STATUS;
-let currentOptimizerStatus: ExperimentalOptimizerStatus = DEFAULT_OPTIMIZER_STATUS;
+let currentOptimizerStatus: PageOptimizerStatus = DEFAULT_OPTIMIZER_STATUS;
 let optimizerActionPending = false;
 let optimizerMutationRevision = 0;
 
@@ -389,7 +390,7 @@ function normalizeAccurateModeStatus(status: AccurateModeStatus | undefined): Ac
   return status ?? DEFAULT_ACCURATE_MODE_STATUS;
 }
 
-function normalizeOptimizerStatus(status: ExperimentalOptimizerStatus | undefined): ExperimentalOptimizerStatus {
+function normalizeOptimizerStatus(status: PageOptimizerStatus | undefined): PageOptimizerStatus {
   return {
     ...DEFAULT_OPTIMIZER_STATUS,
     ...(status ?? {})
@@ -495,7 +496,7 @@ function isTabSortMode(value: string): value is TabSortMode {
 
 function loadStoredTabSortMode(): TabSortMode {
   try {
-    const value = globalThis.localStorage?.getItem(TAB_SORT_STORAGE_KEY);
+    const value = readMigratedTabSort(globalThis.localStorage, TAB_SORT_STORAGE_KEY);
     return value && isTabSortMode(value) ? value : "priority";
   } catch {
     return "priority";
@@ -532,9 +533,9 @@ function normalizeSettings(settings: Settings | undefined): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...(settings ?? {}),
-    experimentalOptimizerItems: {
-      ...DEFAULT_SETTINGS.experimentalOptimizerItems,
-      ...(settings?.experimentalOptimizerItems ?? {})
+    pageOptimizerItems: {
+      ...DEFAULT_SETTINGS.pageOptimizerItems,
+      ...(settings?.pageOptimizerItems ?? {})
     }
   };
 }
@@ -560,7 +561,7 @@ function intelligenceState(element: HTMLElement, state: "normal" | "warning" | "
   element.dataset.state = state;
 }
 
-function isLowBatteryNetworkDietActive(state: AppState): boolean {
+function isLowBatteryNetworkFilteringActive(state: AppState): boolean {
   const power = state.powerState;
   return Boolean(
     state.settings.powerPolicyMode !== "off" &&
@@ -583,13 +584,13 @@ function renderResourceIntelligence(state: AppState, pressure: PressureSnapshot)
     intelligenceState(elements.powerIntelligence, "muted");
   } else {
     const level = formatPercent(power.level);
-    const powerNetworkDietActive = isLowBatteryNetworkDietActive(state);
+    const powerNetworkFilteringActive = isLowBatteryNetworkFilteringActive(state);
     elements.powerIntelligenceValue.textContent = `${power.charging ? "Charging" : "On battery"} · ${level}`;
     elements.powerIntelligenceDetail.textContent = power.policyApplied
       ? `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} policy active${
-          powerNetworkDietActive ? " · Light network filtering" : ""
+          powerNetworkFilteringActive ? " · Light network filtering" : ""
         }`
-      : powerNetworkDietActive
+      : powerNetworkFilteringActive
         ? `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} tabs · Light network filtering`
         : `${humanizeMode(power.effectivePolicyMode ?? state.settings.policyMode)} policy · no override`;
     intelligenceState(
@@ -1000,7 +1001,7 @@ function renderQuickSettings(state: AppState): void {
   elements.policyModeSelect.value = settings.policyMode;
   elements.policyModeSelect.disabled = focusLocked;
   elements.policyModeSelect.title = focusLocked ? "Turn off Focus mode before changing the cleanup mode." : "";
-  elements.networkDietModeSelect.value = settings.networkDietMode;
+  elements.networkFilteringModeSelect.value = settings.networkFilteringMode;
   elements.customThresholdMinutes.disabled = focusLocked || !customEditable;
   elements.customThresholdMinutes.title = focusLocked ? "Turn off Focus mode before changing when tabs unload." : "";
   // Manual mode never unloads on its own, so the field says so instead of sitting empty.
@@ -1079,7 +1080,7 @@ function renderAccurateModeStatus(status: AccurateModeStatus, metrics?: ActiveTa
     : "Memory measurement is unavailable.";
 }
 
-function renderExperimentalOptimizerStatus(status: ExperimentalOptimizerStatus | undefined): void {
+function renderPageOptimizerStatus(status: PageOptimizerStatus | undefined): void {
   const normalized = normalizeOptimizerStatus(status);
   currentOptimizerStatus = normalized;
   const enabled = normalized.enabledInSettings;
@@ -1169,7 +1170,7 @@ function renderExperimentalOptimizerStatus(status: ExperimentalOptimizerStatus |
     title.textContent = item.label;
     description.textContent = item.description;
     main.append(title, description);
-    const checking = item.enabled && normalized.activeTabOptimized && normalized.pageMetrics?.discoveryComplete === false && item.id !== "chatgptConversationOptimizer";
+    const checking = item.enabled && normalized.activeTabOptimized && normalized.pageMetrics?.discoveryComplete === false && item.id !== "aiConversationOptimizer";
     const renderingPaused = item.enabled && normalized.activeTabOptimized && normalized.pageMetrics?.renderingBackoff &&
       ["offscreenRendering", "mediaContainment", "codeBlockContainment", "imageContainment"].includes(item.id);
     const metric = renderingPaused ? "Waiting for live content to settle"
@@ -2221,15 +2222,15 @@ function render(data: PopupState, optimizerRevision = optimizerMutationRevision)
     : state.settings.policyMode === "pressureAdaptive" && state.automationPlan?.inactiveThresholdMinutes != null
       ? `${state.automationPlan.inactiveThresholdMinutes} min now · ${state.automationPlan.pressureStage}`
       : thresholdDetail(state.settings);
-  const powerNetworkDietActive = isLowBatteryNetworkDietActive(state);
-  elements.networkMode.textContent = powerNetworkDietActive && state.settings.networkDietMode === "off"
+  const powerNetworkFilteringActive = isLowBatteryNetworkFilteringActive(state);
+  elements.networkMode.textContent = powerNetworkFilteringActive && state.settings.networkFilteringMode === "off"
     ? "Light (Power)"
-    : humanizeMode(state.settings.networkDietMode);
-  elements.networkMetricDetail.textContent = powerNetworkDietActive
-    ? state.settings.networkDietMode === "light"
+    : humanizeMode(state.settings.networkFilteringMode);
+  elements.networkMetricDetail.textContent = powerNetworkFilteringActive
+    ? state.settings.networkFilteringMode === "light"
       ? "Light configured · low-battery policy active"
       : "Enabled for low battery"
-    : state.settings.networkDietMode === "light"
+    : state.settings.networkFilteringMode === "light"
       ? "Blocks common trackers"
       : "No requests blocked";
   elements.candidateSortSelect.value = currentTabSort;
@@ -2252,7 +2253,7 @@ function render(data: PopupState, optimizerRevision = optimizerMutationRevision)
   } else {
     renderAccurateModeStatus(accurateStatus, activeMetricsForStatus(accurateStatus));
   }
-  if (!optimizerActionPending && optimizerRevision === optimizerMutationRevision) renderExperimentalOptimizerStatus(data.experimentalOptimizerStatus);
+  if (!optimizerActionPending && optimizerRevision === optimizerMutationRevision) renderPageOptimizerStatus(data.pageOptimizerStatus);
   renderCurrentTabProtectionStatus(data.currentTabProtection);
   renderDetailLists(decisions);
   if (tabMutationInFlight) setTabMutationPending(true);
@@ -2728,8 +2729,8 @@ elements.checkLeakButton.addEventListener("click", () => {
 });
 
 async function runOptimizerAction(
-  action: () => Promise<ExperimentalOptimizerStatus>,
-  message: (status: ExperimentalOptimizerStatus) => string
+  action: () => Promise<PageOptimizerStatus>,
+  message: (status: PageOptimizerStatus) => string
 ): Promise<void> {
   if (optimizerActionPending) return;
   const focused = document.activeElement as HTMLElement | null;
@@ -2737,18 +2738,18 @@ async function runOptimizerAction(
   const startedView = currentView;
   optimizerActionPending = true;
   optimizerMutationRevision++;
-  renderExperimentalOptimizerStatus(currentOptimizerStatus);
+  renderPageOptimizerStatus(currentOptimizerStatus);
   try {
     // Invoke before any await: permission requests must retain the click gesture.
     const status = await action();
-    renderExperimentalOptimizerStatus(status);
+    renderPageOptimizerStatus(status);
     setMessage(message(status));
   } catch (error) {
     setMessage(error instanceof Error ? error.message : String(error), true);
   } finally {
     optimizerActionPending = false;
     optimizerMutationRevision++;
-    renderExperimentalOptimizerStatus(currentOptimizerStatus);
+    renderPageOptimizerStatus(currentOptimizerStatus);
     // A successful exclusion can hide the quick action that held focus.
     if (currentView === startedView && (document.activeElement === document.body || document.activeElement === focused)) {
       const nextFocus = focusedItem
@@ -2767,7 +2768,7 @@ function toggleAutomaticOptimization(): void {
     if (enabled && !await chrome.permissions.request({ origins: ALL_OPTIMIZER_ORIGINS })) {
       throw new Error("Website access was not granted. Automatic optimization is unchanged.");
     }
-    return sendAppMessage<ExperimentalOptimizerStatus>({ type: "setAllSitesOptimizer", enabled });
+    return sendAppMessage<PageOptimizerStatus>({ type: "setAllSitesOptimizer", enabled });
   }, () => enabled ? "Automatic optimization enabled for all sites." : "Automatic optimization limited to saved sites.");
 }
 elements.optimizerAllSitesButton.addEventListener("click", toggleAutomaticOptimization);
@@ -2782,7 +2783,7 @@ elements.optimizerOverviewAction.addEventListener("click", () => {
 function toggleCurrentTabOptimization(): void {
   const enabled = !currentOptimizerStatus.activeTabOptimized;
   const target = { tabId: currentOptimizerStatus.activeTabId!, domain: currentOptimizerStatus.activeTabDomain! };
-  void runOptimizerAction(() => sendAppMessage<ExperimentalOptimizerToggleResult>({
+  void runOptimizerAction(() => sendAppMessage<PageOptimizerToggleResult>({
     type: "setActiveTabOptimizer", enabled, target
   }), status => status.activeTabOptimized ? "Tab optimized." : enabled ? "Optimization could not be applied. Try again." : "Tab restored until navigation or reload.");
 }
@@ -2797,7 +2798,7 @@ function setCurrentSiteOptimization(enabled: boolean): void {
       if (!domain) throw new Error("Open a website first.");
       if (!currentOptimizerStatus.allSitesAccessGranted) await requestOptimizerSiteAccess(domain);
     }
-    return sendAppMessage<ExperimentalOptimizerStatus>({ type: "setCurrentSiteOptimizer", enabled, target });
+    return sendAppMessage<PageOptimizerStatus>({ type: "setCurrentSiteOptimizer", enabled, target });
   }, status => enabled
     ? status.activeTabOptimized ? "Automatic optimization enabled for this site." : "Site saved. Waiting to optimize this page."
     : "Site excluded from automatic optimization.");
@@ -2809,18 +2810,18 @@ elements.optimizerSiteToggleButton.addEventListener("click", () => {
 });
 elements.optimizerQuickExclude.addEventListener("click", () => setCurrentSiteOptimization(false));
 elements.optimizerResetButton.addEventListener("click", () => {
-  void runOptimizerAction(() => sendAppMessage<ExperimentalOptimizerStatus>({ type: "resetExperimentalOptimizer" }),
+  void runOptimizerAction(() => sendAppMessage<PageOptimizerStatus>({ type: "resetPageOptimizer" }),
     () => "Optimizer reset.");
 });
 
 elements.optimizerItemList.addEventListener("change", event => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || !target.dataset.optimizerItemId || optimizerActionPending) return;
-  const itemId = target.dataset.optimizerItemId as ExperimentalOptimizerItemId;
+  const itemId = target.dataset.optimizerItemId as PageOptimizerItemId;
   const enabled = target.checked;
   const wasApplied = currentOptimizerStatus.activeTabOptimized;
-  void runOptimizerAction(() => sendAppMessage<ExperimentalOptimizerStatus>({
-    type: "setExperimentalOptimizerItemEnabled", itemId, enabled
+  void runOptimizerAction(() => sendAppMessage<PageOptimizerStatus>({
+    type: "setPageOptimizerItemEnabled", itemId, enabled
   }), status => wasApplied && !status.activeTabOptimized
     ? "Setting saved. Optimization could not be reapplied to this page."
     : enabled ? "Optimization enabled." : "Optimization disabled.");
@@ -2863,11 +2864,11 @@ elements.customThresholdMinutes.addEventListener("change", () => {
   );
 });
 
-elements.networkDietModeSelect.addEventListener("change", () => {
+elements.networkFilteringModeSelect.addEventListener("change", () => {
   void runAction("Update network filtering", () =>
     sendAppMessage({
-      type: "setNetworkDietMode",
-      mode: elements.networkDietModeSelect.value as NetworkDietMode
+      type: "setNetworkFilteringMode",
+      mode: elements.networkFilteringModeSelect.value as NetworkFilteringMode
     })
   );
 });

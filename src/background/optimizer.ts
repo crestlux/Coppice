@@ -1,16 +1,16 @@
 import type {
-  ExperimentalOptimizerItemId,
-  ExperimentalOptimizerStatus,
-  ExperimentalOptimizerToggleResult,
+  PageOptimizerItemId,
+  PageOptimizerStatus,
+  PageOptimizerToggleResult,
   OptimizedTab,
   Settings
 } from "../shared/types";
 import { DEFAULT_SETTINGS } from "../shared/constants";
 import { OPTIMIZER_CATALOG, optimizerItemStatuses } from "../shared/optimizerCatalog";
 import { ALL_OPTIMIZER_ORIGINS, isOptimizerUrl, optimizerOriginsForDomain, optimizerDomainAccessGranted } from "../shared/optimizerAccess";
-import { installOptimizerCleanupBridge } from "./optimizerCleanup";
+import { installOptimizerCleanupBridge, restoreOptimizerInPage } from "./optimizerCleanup";
 import { installPageOptimizer, removePageOptimizer, probePageOptimizer, probeOptimizerInstallation } from "./pageOptimizer";
-import { LEGACY_OPTIMIZER_ITEM_CSS } from "./legacyOptimizerCss";
+import { restoreLegacyOptimizer } from "./legacyOptimizer";
 import {
   getSettings,
   getOptimizedTabs,
@@ -33,10 +33,10 @@ import {
   removeAiConversationOptimizer
 } from "./aiConversationOptimizer";
 
-export const EXPERIMENTAL_OPTIMIZER_WARNING =
+export const PAGE_OPTIMIZER_WARNING =
   "Beta. Optimizations are reversible and can be removed from the current tab or saved site.";
 
-const LEGACY_EXPERIMENTAL_OPTIMIZER_CSS = `
+const LEGACY_PAGE_OPTIMIZER_CSS = `
 @supports (content-visibility: auto) {
   main article,
   main [role="article"],
@@ -56,7 +56,7 @@ canvas:not(:hover):not(:focus-within) {
 }
 `;
 
-const LEGACY_CHATGPT_CONVERSATION_OPTIMIZER_CSS = `
+const LEGACY_AI_CONVERSATION_OPTIMIZER_CSS = `
 [data-message-author-role],
 [data-testid*="conversation-turn"],
 [data-testid*="message-row"],
@@ -69,12 +69,12 @@ article:has([data-message-author-role]) {
 
 const OPTIMIZER_ITEMS = OPTIMIZER_CATALOG.map(item => ({
   ...item,
-  css: item.id === "chatgptConversationOptimizer" ? AI_CONVERSATION_OPTIMIZER_CSS
+  css: item.id === "aiConversationOptimizer" ? AI_CONVERSATION_OPTIMIZER_CSS
     : ""
 }));
 
 function enabledOptimizerItems(settings: Settings) {
-  return OPTIMIZER_ITEMS.filter(item => settings.experimentalOptimizerItems[item.id]);
+  return OPTIMIZER_ITEMS.filter(item => settings.pageOptimizerItems[item.id]);
 }
 
 async function getActiveTab(): Promise<chrome.tabs.Tab | undefined> {
@@ -117,7 +117,7 @@ async function revokePersistentOptimizerAccess(domains: string[]): Promise<void>
   try {
     await chrome.permissions.remove({ origins });
   } catch (error) {
-    console.warn("Could not revoke Experimental Optimizer site access", error);
+    console.warn("Could not revoke Page optimizer site access", error);
   }
 }
 
@@ -130,7 +130,7 @@ function statusForTab(input: {
   settings: Settings;
   tab?: chrome.tabs.Tab;
   optimizedTabs: OptimizedTab[];
-}): ExperimentalOptimizerStatus {
+}): PageOptimizerStatus {
   const tab = input.tab;
   const activeTabId = tab?.id;
   const canUseTab = Boolean(typeof activeTabId === "number" && isOptimizerUrl(tab?.url));
@@ -139,13 +139,13 @@ function statusForTab(input: {
     tab
   );
   const activeTabDomain = getHostname(tab?.url) ?? undefined;
-  const activeSiteExcluded = Boolean(activeTabDomain && input.settings.experimentalOptimizerExcludedDomains.includes(activeTabDomain));
+  const activeSiteExcluded = Boolean(activeTabDomain && input.settings.pageOptimizerExcludedDomains.includes(activeTabDomain));
   const activeSiteEnabled = Boolean(canUseTab && activeTabDomain && !activeSiteExcluded &&
-    (input.settings.experimentalOptimizerAllSites || input.settings.experimentalOptimizerSiteDomains.includes(activeTabDomain)));
+    (input.settings.pageOptimizerAllSites || input.settings.pageOptimizerSiteDomains.includes(activeTabDomain)));
 
   return {
-    enabledInSettings: input.settings.experimentalOptimizerEnabled,
-    allSitesEnabled: input.settings.experimentalOptimizerAllSites,
+    enabledInSettings: input.settings.pageOptimizerEnabled,
+    allSitesEnabled: input.settings.pageOptimizerAllSites,
     allSitesAccessGranted: false,
     activeSiteExcluded,
     activeTabPaused: false,
@@ -153,9 +153,9 @@ function statusForTab(input: {
     activeSiteEnabled,
     activeSiteAccessGranted: false,
     canToggleActiveTab: canUseTab,
-    siteDomains: input.settings.experimentalOptimizerSiteDomains,
+    siteDomains: input.settings.pageOptimizerSiteDomains,
     items: optimizerItemStatuses(input.settings),
-    warning: EXPERIMENTAL_OPTIMIZER_WARNING,
+    warning: PAGE_OPTIMIZER_WARNING,
     reason: canUseTab ? undefined : "Chrome does not allow optimization on this page. Open a regular HTTP or HTTPS page.",
     activeTabId,
     activeTabDomain,
@@ -163,7 +163,7 @@ function statusForTab(input: {
   };
 }
 
-export async function getExperimentalOptimizerStatus(): Promise<ExperimentalOptimizerStatus> {
+export async function getPageOptimizerStatus(): Promise<PageOptimizerStatus> {
   const [settings, activeTab, optimizedTabs, pausedTabs] = await Promise.all([
     getSettings(),
     getActiveTab(),
@@ -181,7 +181,7 @@ export async function getExperimentalOptimizerStatus(): Promise<ExperimentalOpti
   // runtime in the same-origin document is stronger evidence than that stale
   // URL; a new document has no runtime and must not inherit a manual selection.
   const tracked = optimizedTabs.find(record => record.tabId === status.activeTabId);
-  if (!status.activeTabOptimized && settings.experimentalOptimizerEnabled && tracked &&
+  if (!status.activeTabOptimized && settings.pageOptimizerEnabled && tracked &&
       typeof status.activeTabId === "number" && sharesOrigin(tracked.url, activeTab?.url)) {
     const installation = await probeOptimizerInstallation(status.activeTabId).catch(() => undefined);
     status.activeTabOptimized = installation?.pageInstalled === true;
@@ -189,7 +189,7 @@ export async function getExperimentalOptimizerStatus(): Promise<ExperimentalOpti
   const shouldProbeAiConversation = Boolean(
     status.activeTabOptimized &&
       typeof status.activeTabId === "number" &&
-      settings.experimentalOptimizerItems.chatgptConversationOptimizer
+      settings.pageOptimizerItems.aiConversationOptimizer
   );
   const [activeSiteAccessGranted, allSitesAccessGranted, aiConversationMetrics, pageMetrics, permissions] = await Promise.all([
     hasPersistentOptimizerAccess(status.activeTabDomain),
@@ -203,8 +203,8 @@ export async function getExperimentalOptimizerStatus(): Promise<ExperimentalOpti
     chrome.permissions?.getAll?.().catch(() => undefined)
   ]);
   const items = status.items.map(item => ({ ...item, metrics: pageMetrics?.items?.[item.id] }));
-  const siteAccessGrantedCount = permissions ? settings.experimentalOptimizerSiteDomains.filter(domain =>
-    !settings.experimentalOptimizerExcludedDomains.includes(domain) && optimizerDomainAccessGranted(domain, permissions.origins ?? [])).length : undefined;
+  const siteAccessGrantedCount = permissions ? settings.pageOptimizerSiteDomains.filter(domain =>
+    !settings.pageOptimizerExcludedDomains.includes(domain) && optimizerDomainAccessGranted(domain, permissions.origins ?? [])).length : undefined;
   return { ...status, items, activeSiteAccessGranted, allSitesAccessGranted, siteAccessGrantedCount, aiConversationMetrics, pageMetrics };
 }
 
@@ -225,16 +225,16 @@ async function removeCss(tabId: number, css: string): Promise<void> {
 async function insertEnabledOptimizerCss(tabId: number, settings: Settings): Promise<void> {
   await chrome.scripting.executeScript({ target: { tabId }, func: installOptimizerCleanupBridge });
   const enabledItems = enabledOptimizerItems(settings);
-  const aiConversationItem = enabledItems.find(item => item.id === "chatgptConversationOptimizer");
+  const aiConversationItem = enabledItems.find(item => item.id === "aiConversationOptimizer");
   if (aiConversationItem) {
     await insertCss(tabId, aiConversationItem.css);
     await installAiConversationOptimizer(tabId);
   }
   for (const item of enabledItems) {
-    if (item.id === "chatgptConversationOptimizer") continue;
+    if (item.id === "aiConversationOptimizer") continue;
     if (item.css) await insertCss(tabId, item.css);
   }
-  await installPageOptimizer(tabId, settings.experimentalOptimizerItems);
+  await installPageOptimizer(tabId, settings.pageOptimizerItems);
 }
 
 const tabCssJobs = new Map<number, Promise<void>>();
@@ -251,16 +251,16 @@ async function replaceOptimizerCss(tabId: number, settings: Settings, automaticU
     // A settings change may overtake a queued browser event. Do not reinstall
     // an obsolete configuration after the user has disabled or changed it.
     const current = await getSettings();
-    if (!current.experimentalOptimizerEnabled || optimizerSettingsFingerprint(current) !== optimizerSettingsFingerprint(settings)) return false;
+    if (!current.pageOptimizerEnabled || optimizerSettingsFingerprint(current) !== optimizerSettingsFingerprint(settings)) return false;
     if (automaticUrl !== undefined) {
       const paused = (await getOptimizerPausedTabs()).some(tab => tab.tabId === tabId && tab.url === automaticUrl);
       const liveTab = await chrome.tabs.get(tabId).catch(() => undefined);
       if (paused || !liveTab || liveTab.url !== automaticUrl || liveTab.discarded || liveTab.frozen || liveTab.status === "loading") return false;
     }
-    const configurationKey = Object.entries(settings.experimentalOptimizerItems).filter(([, value]) => value).map(([id]) => id).sort().join("|");
+    const configurationKey = Object.entries(settings.pageOptimizerItems).filter(([, value]) => value).map(([id]) => id).sort().join("|");
     const runtime = await probeOptimizerInstallation(tabId).catch(() => undefined);
     if (runtime?.pageInstalled && runtime.configurationKey === configurationKey) {
-      const aiReady = !settings.experimentalOptimizerItems.chatgptConversationOptimizer || runtime.aiInstalled;
+      const aiReady = !settings.pageOptimizerItems.aiConversationOptimizer || runtime.aiInstalled;
       if (aiReady) {
         // An older installed runtime can survive an extension update. Attach
         // the current cleanup channel even when rendering needs no reinstall.
@@ -303,15 +303,15 @@ function runOptimizerMutation<T>(operation: () => Promise<T>): Promise<T> {
 
 function optimizerSettingsFingerprint(settings: Settings): string {
   return JSON.stringify([
-    settings.experimentalOptimizerEnabled,
-    settings.experimentalOptimizerItems,
-    settings.experimentalOptimizerSiteDomains,
-    settings.experimentalOptimizerAllSites,
-    settings.experimentalOptimizerExcludedDomains
+    settings.pageOptimizerEnabled,
+    settings.pageOptimizerItems,
+    settings.pageOptimizerSiteDomains,
+    settings.pageOptimizerAllSites,
+    settings.pageOptimizerExcludedDomains
   ]);
 }
 
-export async function reconcileExperimentalOptimizerSettings(
+export async function reconcilePageOptimizerSettings(
   previousSettings?: Partial<Settings>,
   options: { dedupe?: boolean; force?: boolean; reapplyTracked?: boolean } = {}
 ): Promise<void> {
@@ -324,11 +324,11 @@ export async function reconcileExperimentalOptimizerSettings(
   const job = optimizerReconcileQueue.then(async () => {
     if (optimizerSettingsFingerprint(await getSettings()) !== fingerprint) return;
     if (options.dedupe && !options.force && fingerprint === lastReconciledFingerprint) return;
-    if (!settings.experimentalOptimizerEnabled) {
-      await removeAllExperimentalOptimizerCss();
+    if (!settings.pageOptimizerEnabled) {
+      await removeAllPageOptimizerCss();
       await revokePersistentOptimizerAccess(
-        (previousSettings?.experimentalOptimizerSiteDomains ?? []).filter(
-          domain => !settings.experimentalOptimizerSiteDomains.includes(domain)
+        (previousSettings?.pageOptimizerSiteDomains ?? []).filter(
+          domain => !settings.pageOptimizerSiteDomains.includes(domain)
         )
       );
       lastReconciledFingerprint = fingerprint;
@@ -339,14 +339,14 @@ export async function reconcileExperimentalOptimizerSettings(
     await pruneOptimizerPausedTabs(openTabIds(openTabs));
     const optimizedTabs = await pruneOptimizedTabs(openTabIds(openTabs));
     const optimizedById = new Map(optimizedTabs.map(record => [record.tabId, record]));
-    const previousSiteDomains = new Set(previousSettings?.experimentalOptimizerSiteDomains ?? []);
+    const previousSiteDomains = new Set(previousSettings?.pageOptimizerSiteDomains ?? []);
 
     for (const tab of openTabs) {
       if (typeof tab.id !== "number") continue;
       const record = optimizedById.get(tab.id);
       const domain = getHostname(tab.url);
-      const siteEnabled = Boolean(domain && settings.experimentalOptimizerSiteDomains.includes(domain));
-      if (!record && !siteEnabled && !settings.experimentalOptimizerAllSites) continue;
+      const siteEnabled = Boolean(domain && settings.pageOptimizerSiteDomains.includes(domain));
+      if (!record && !siteEnabled && !settings.pageOptimizerAllSites) continue;
 
       const siteNewlyEnabled = Boolean(domain && siteEnabled && !previousSiteDomains.has(domain));
       const source = siteNewlyEnabled
@@ -356,15 +356,15 @@ export async function reconcileExperimentalOptimizerSettings(
             ? "site"
             : siteEnabled
               ? "site"
-              : settings.experimentalOptimizerAllSites ? "global" : "manual");
-      await syncExperimentalOptimizerForTab(tab, {
+              : settings.pageOptimizerAllSites ? "global" : "manual");
+      await syncPageOptimizerForTab(tab, {
         force: options.reapplyTracked ?? Boolean(record),
         source
       });
     }
     await revokePersistentOptimizerAccess(
-      (previousSettings?.experimentalOptimizerSiteDomains ?? []).filter(
-        domain => !settings.experimentalOptimizerSiteDomains.includes(domain)
+      (previousSettings?.pageOptimizerSiteDomains ?? []).filter(
+        domain => !settings.pageOptimizerSiteDomains.includes(domain)
       )
     );
     lastReconciledFingerprint = fingerprint;
@@ -386,11 +386,12 @@ function removeAllOptimizerCssFromTab(tabId: number): Promise<void> {
 }
 
 async function removeAllOptimizerCssFromTabNow(tabId: number): Promise<void> {
-  await chrome.tabs.sendMessage?.(tabId, { type: "resourceGovernor.restoreOptimizer" }).catch(() => undefined);
+  await chrome.scripting.executeScript({ target: { tabId }, func: restoreOptimizerInPage }).catch(() => undefined);
+  await restoreLegacyOptimizer(tabId);
+  await chrome.tabs.sendMessage?.(tabId, { type: "coppice.restoreOptimizer" }).catch(() => undefined);
   await removePageOptimizer(tabId).catch(() => undefined);
-  for (const css of LEGACY_OPTIMIZER_ITEM_CSS) await removeCss(tabId, css).catch(() => undefined);
-  await removeCss(tabId, LEGACY_EXPERIMENTAL_OPTIMIZER_CSS).catch(() => undefined);
-  await removeCss(tabId, LEGACY_CHATGPT_CONVERSATION_OPTIMIZER_CSS).catch(() => undefined);
+  await removeCss(tabId, LEGACY_PAGE_OPTIMIZER_CSS).catch(() => undefined);
+  await removeCss(tabId, LEGACY_AI_CONVERSATION_OPTIMIZER_CSS).catch(() => undefined);
   for (const item of OPTIMIZER_ITEMS) {
     if (item.css) await removeCss(tabId, item.css).catch(() => undefined);
   }
@@ -399,7 +400,7 @@ async function removeAllOptimizerCssFromTabNow(tabId: number): Promise<void> {
   await removeAiConversationOptimizer(tabId).catch(() => undefined);
 }
 
-export async function removeAllExperimentalOptimizerCss(): Promise<number> {
+export async function removeAllPageOptimizerCss(): Promise<number> {
   const openTabs = await getOpenTabs();
   const optimizedTabs = await pruneOptimizedTabs(openTabIds(openTabs));
   const deferredTabs: OptimizedTab[] = [];
@@ -417,7 +418,7 @@ export async function removeAllExperimentalOptimizerCss(): Promise<number> {
       await removeAllOptimizerCssFromTab(tab.tabId);
       removedCount += 1;
     } catch (error) {
-      console.warn("Failed to remove experimental optimizer CSS", tab.tabId, error);
+      console.warn("Failed to remove page optimizer CSS", tab.tabId, error);
     }
   }
 
@@ -425,16 +426,16 @@ export async function removeAllExperimentalOptimizerCss(): Promise<number> {
   return removedCount;
 }
 
-export function setExperimentalOptimizerEnabled(enabled: boolean): Promise<ExperimentalOptimizerStatus> {
+export function setPageOptimizerEnabled(enabled: boolean): Promise<PageOptimizerStatus> {
   return runOptimizerMutation(async () => {
     const previousSettings = await getSettings();
-    await updateSettings({ experimentalOptimizerEnabled: enabled });
-    await reconcileExperimentalOptimizerSettings(previousSettings, { force: true });
-    return getExperimentalOptimizerStatus();
+    await updateSettings({ pageOptimizerEnabled: enabled });
+    await reconcilePageOptimizerSettings(previousSettings, { force: true });
+    return getPageOptimizerStatus();
   });
 }
 
-export function setAllSitesOptimizer(enabled: boolean): Promise<ExperimentalOptimizerStatus> {
+export function setAllSitesOptimizer(enabled: boolean): Promise<PageOptimizerStatus> {
   return runOptimizerMutation(async () => {
     // The popup requests access synchronously in its click handler. Never
     // advertise automatic coverage before Chrome has actually granted it.
@@ -443,38 +444,38 @@ export function setAllSitesOptimizer(enabled: boolean): Promise<ExperimentalOpti
     }
     const previousSettings = await getSettings();
     await updateSettings({
-      experimentalOptimizerAllSites: enabled,
-      experimentalOptimizerEnabled: enabled ? true : previousSettings.experimentalOptimizerEnabled
+      pageOptimizerAllSites: enabled,
+      pageOptimizerEnabled: enabled ? true : previousSettings.pageOptimizerEnabled
     });
-    await reconcileExperimentalOptimizerSettings(previousSettings, { force: true });
-    return getExperimentalOptimizerStatus();
+    await reconcilePageOptimizerSettings(previousSettings, { force: true });
+    return getPageOptimizerStatus();
   });
 }
 
-export function setExperimentalOptimizerItemEnabled(
-  itemId: ExperimentalOptimizerItemId,
+export function setPageOptimizerItemEnabled(
+  itemId: PageOptimizerItemId,
   enabled: boolean
-): Promise<ExperimentalOptimizerStatus> {
+): Promise<PageOptimizerStatus> {
   const item = OPTIMIZER_ITEMS.find(candidate => candidate.id === itemId);
-  if (!item) return Promise.reject(new Error("Unknown Experimental Optimizer item."));
+  if (!item) return Promise.reject(new Error("Unknown Page optimizer item."));
 
   return runOptimizerMutation(async () => {
     const settings = await getSettings();
     await updateSettings({
-      experimentalOptimizerItems: {
-        ...settings.experimentalOptimizerItems,
+      pageOptimizerItems: {
+        ...settings.pageOptimizerItems,
         [itemId]: enabled
       }
     });
-    await reconcileExperimentalOptimizerSettings(settings, { force: true });
-    return getExperimentalOptimizerStatus();
+    await reconcilePageOptimizerSettings(settings, { force: true });
+    return getPageOptimizerStatus();
   });
 }
 
 const tabSyncJobs = new Map<number, Promise<boolean>>();
 type OptimizerSyncOptions = { force?: boolean; source?: OptimizedTab["source"]; navigation?: boolean };
 
-export function syncExperimentalOptimizerForTab(tab: chrome.tabs.Tab, options: OptimizerSyncOptions = {}): Promise<boolean> {
+export function syncPageOptimizerForTab(tab: chrome.tabs.Tab, options: OptimizerSyncOptions = {}): Promise<boolean> {
   if (typeof tab.id !== "number") return Promise.resolve(false);
   const tabId = tab.id;
   const job = (tabSyncJobs.get(tabId) ?? Promise.resolve(false)).catch(() => false).then(async () => {
@@ -507,11 +508,11 @@ async function syncOptimizerDocument(
   const paused = pausedTabs.some(item => item.tabId === tab.id && item.url === tab.url);
   const isEligible = Boolean(isOptimizerUrl(tab.url) && domain);
   let isSameTrackedDocument = optimizedRecordMatchesTab(optimizedTab, tab);
-  const excluded = Boolean(domain && settings.experimentalOptimizerExcludedDomains.includes(domain));
-  const siteEnabled = Boolean(domain && !excluded && settings.experimentalOptimizerSiteDomains.includes(domain));
-  const automaticRequested = !excluded && (siteEnabled || settings.experimentalOptimizerAllSites);
+  const excluded = Boolean(domain && settings.pageOptimizerExcludedDomains.includes(domain));
+  const siteEnabled = Boolean(domain && !excluded && settings.pageOptimizerSiteDomains.includes(domain));
+  const automaticRequested = !excluded && (siteEnabled || settings.pageOptimizerAllSites);
   const shouldOptimizeSavedSite = Boolean(
-    settings.experimentalOptimizerEnabled &&
+    settings.pageOptimizerEnabled &&
       isEligible &&
       !paused && automaticRequested && await hasPersistentOptimizerAccess(domain ?? undefined)
   );
@@ -519,7 +520,7 @@ async function syncOptimizerDocument(
   // SPA scrolling, anchors and history updates can change the URL without
   // replacing the document. Its isolated-world runtime proves it is still live;
   // a new document or another origin must not inherit a manual application.
-  if (!isSameTrackedDocument && optimizedTab && settings.experimentalOptimizerEnabled &&
+  if (!isSameTrackedDocument && optimizedTab && settings.pageOptimizerEnabled &&
       isEligible && trackedSource === "manual" && sharesOrigin(optimizedTab.url, tab.url)) {
     const existingRuntime = await probeOptimizerInstallation(tab.id).catch(() => undefined);
     if (existingRuntime?.pageInstalled) {
@@ -531,7 +532,7 @@ async function syncOptimizerDocument(
   // A manually optimized tab is intentionally session-scoped. Keep it active
   // in the tracked document (and on same-URL reloads), without saving the site.
   const shouldKeepManualTab = Boolean(
-    settings.experimentalOptimizerEnabled &&
+    settings.pageOptimizerEnabled &&
       isEligible &&
       !paused &&
       isSameTrackedDocument &&
@@ -570,7 +571,7 @@ async function syncOptimizerDocument(
     return true;
   } catch (error) {
     await removeOptimizedTab(tab.id);
-    console.warn("Could not auto-apply Experimental Optimizer", tab.id, error);
+    console.warn("Could not auto-apply Page optimizer", tab.id, error);
     return false;
   }
 }
@@ -581,7 +582,7 @@ function assertOptimizerTarget(tab: chrome.tabs.Tab | undefined, expected?: Opti
   }
 }
 
-export function setCurrentSiteOptimizer(enabled: boolean, target?: OptimizerTarget): Promise<ExperimentalOptimizerStatus> {
+export function setCurrentSiteOptimizer(enabled: boolean, target?: OptimizerTarget): Promise<PageOptimizerStatus> {
   return runOptimizerMutation(async () => {
     const activeTab = await getActiveTab();
     assertOptimizerTarget(activeTab, target);
@@ -592,14 +593,14 @@ export function setCurrentSiteOptimizer(enabled: boolean, target?: OptimizerTarg
 
     const settings = await getSettings();
     const siteDomains = enabled
-      ? [domain, ...settings.experimentalOptimizerSiteDomains.filter(item => item !== domain)]
-      : settings.experimentalOptimizerSiteDomains.filter(item => item !== domain);
+      ? [domain, ...settings.pageOptimizerSiteDomains.filter(item => item !== domain)]
+      : settings.pageOptimizerSiteDomains.filter(item => item !== domain);
     await updateSettings({
-      experimentalOptimizerEnabled: enabled ? true : settings.experimentalOptimizerEnabled,
-      experimentalOptimizerSiteDomains: siteDomains,
-      experimentalOptimizerExcludedDomains: enabled
-        ? settings.experimentalOptimizerExcludedDomains.filter(item => item !== domain)
-        : [...new Set([domain, ...settings.experimentalOptimizerExcludedDomains])]
+      pageOptimizerEnabled: enabled ? true : settings.pageOptimizerEnabled,
+      pageOptimizerSiteDomains: siteDomains,
+      pageOptimizerExcludedDomains: enabled
+        ? settings.pageOptimizerExcludedDomains.filter(item => item !== domain)
+        : [...new Set([domain, ...settings.pageOptimizerExcludedDomains])]
     });
     if (enabled) await clearOptimizerTabPause(activeTab.id);
     else {
@@ -620,36 +621,36 @@ export function setCurrentSiteOptimizer(enabled: boolean, target?: OptimizerTarg
         }
       }
     }
-    await reconcileExperimentalOptimizerSettings(settings, { force: true });
-    return getExperimentalOptimizerStatus();
+    await reconcilePageOptimizerSettings(settings, { force: true });
+    return getPageOptimizerStatus();
   });
 }
 
-export function resetExperimentalOptimizer(): Promise<ExperimentalOptimizerStatus> {
+export function resetPageOptimizer(): Promise<PageOptimizerStatus> {
   return runOptimizerMutation(async () => {
     const previousSettings = await getSettings();
     await updateSettings({
-      experimentalOptimizerEnabled: false,
-      experimentalOptimizerAllSites: false,
-      experimentalOptimizerExcludedDomains: [],
-      experimentalOptimizerItems: { ...DEFAULT_SETTINGS.experimentalOptimizerItems },
-      experimentalOptimizerSiteDomains: []
+      pageOptimizerEnabled: false,
+      pageOptimizerAllSites: false,
+      pageOptimizerExcludedDomains: [],
+      pageOptimizerItems: { ...DEFAULT_SETTINGS.pageOptimizerItems },
+      pageOptimizerSiteDomains: []
     });
-    await reconcileExperimentalOptimizerSettings(previousSettings, { force: true });
+    await reconcilePageOptimizerSettings(previousSettings, { force: true });
     await clearOptimizerTabPause();
     // Resetting rendering preferences must not disable independent draft checks.
     // Chrome's extension site-access controls remain available to revoke grants.
     if (!(await getSettings()).protectUnsavedWork) {
       await chrome.permissions?.remove({ origins: [
         ...ALL_OPTIMIZER_ORIGINS,
-        ...previousSettings.experimentalOptimizerSiteDomains.flatMap(optimizerOriginsForDomain)
+        ...previousSettings.pageOptimizerSiteDomains.flatMap(optimizerOriginsForDomain)
       ] }).catch(() => undefined);
     }
-    return getExperimentalOptimizerStatus();
+    return getPageOptimizerStatus();
   });
 }
 
-export function setActiveTabOptimizer(enabled: boolean, target?: OptimizerTarget): Promise<ExperimentalOptimizerToggleResult> {
+export function setActiveTabOptimizer(enabled: boolean, target?: OptimizerTarget): Promise<PageOptimizerToggleResult> {
   return runOptimizerMutation(async () => {
     const activeTab = await getActiveTab();
     assertOptimizerTarget(activeTab, target);
@@ -663,31 +664,31 @@ export function setActiveTabOptimizer(enabled: boolean, target?: OptimizerTarget
       activeTab
     );
     let settings = await getSettings();
-    const enabledMasterForThisApply = enabled && !settings.experimentalOptimizerEnabled;
-    if (enabled && !settings.experimentalOptimizerEnabled) {
+    const enabledMasterForThisApply = enabled && !settings.pageOptimizerEnabled;
+    if (enabled && !settings.pageOptimizerEnabled) {
       const previousSettings = settings;
-      settings = await updateSettings({ experimentalOptimizerEnabled: true });
-      await reconcileExperimentalOptimizerSettings(previousSettings, { force: true });
+      settings = await updateSettings({ pageOptimizerEnabled: true });
+      await reconcilePageOptimizerSettings(previousSettings, { force: true });
     }
 
     if (enabled) {
       await clearOptimizerTabPause(activeTab.id);
       try {
         if (!await replaceOptimizerCss(activeTab.id, settings)) {
-          return { ...await getExperimentalOptimizerStatus(), changed: false };
+          return { ...await getPageOptimizerStatus(), changed: false };
         }
       } catch (error) {
         if (enabledMasterForThisApply) {
           try {
             const failedSettings = await getSettings();
-            await updateSettings({ experimentalOptimizerEnabled: false });
-            await reconcileExperimentalOptimizerSettings(failedSettings, { force: true });
+            await updateSettings({ pageOptimizerEnabled: false });
+            await reconcilePageOptimizerSettings(failedSettings, { force: true });
           } catch (rollbackError) {
-            console.warn("Could not roll back Experimental Optimizer after failed application", rollbackError);
+            console.warn("Could not roll back Page optimizer after failed application", rollbackError);
           }
         }
         throw new Error(
-          `Could not apply Experimental Optimizer. ${error instanceof Error ? error.message : String(error)}`
+          `Could not apply Page optimizer. ${error instanceof Error ? error.message : String(error)}`
         );
       }
       await setOptimizedTab({
@@ -704,12 +705,12 @@ export function setActiveTabOptimizer(enabled: boolean, target?: OptimizerTarget
       try {
         await removeAllOptimizerCssFromTab(activeTab.id);
       } catch (error) {
-        console.warn("Failed to remove experimental optimizer CSS", activeTab.id, error);
+        console.warn("Failed to remove page optimizer CSS", activeTab.id, error);
       }
       await removeOptimizedTab(activeTab.id);
     }
 
-    const status = await getExperimentalOptimizerStatus();
+    const status = await getPageOptimizerStatus();
     return {
       ...status,
       changed: wasOptimized !== enabled

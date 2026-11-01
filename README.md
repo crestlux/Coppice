@@ -212,6 +212,12 @@ npm run build:release  # Store build without source maps
 
 GitHub Actions checks installation, types and the release build on Windows and Linux. The maintainer's `tests/`, `scripts/`, browser configuration and raw experiments are excluded from this public source snapshot; the related npm commands require that local tooling and are not part of the public CI checks.
 
+Existing settings and version 1 backups migrate to the current names. New backups and Sync snapshots use version 2. Update Coppice on every device before syncing; older builds cannot read the new format.
+
+When updating from a build with the previous optimizer names, turn Page optimizer off before reloading the extension, then turn it back on. If you already reloaded it, save your work and refresh previously optimized pages once to clear the old runtime.
+
+Compatibility names are confined to [legacyNames.ts](src/shared/legacyNames.ts); [legacyOptimizerCss.ts](src/background/legacyOptimizerCss.ts) retains exact previous styles solely for removal. New settings, messages, DOM attributes and exports use the current names.
+
 For the Chrome Web Store, zip the **contents** of `dist/` after `npm run build:release`, with `manifest.json` at the root of the archive.
 
 ```text

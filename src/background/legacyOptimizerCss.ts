@@ -1,5 +1,13 @@
 // Exact previous CSS strings are required by chrome.scripting.removeCSS during upgrades.
 export const LEGACY_OPTIMIZER_ITEM_CSS: string[] = [
+  `
+@supports (content-visibility: auto) {
+  [data-resource-governor-ai-turn="optimized"] {
+    content-visibility: auto !important;
+    contain-intrinsic-block-size: auto var(--resource-governor-ai-turn-size, 720px) !important;
+  }
+}
+`,
   "\n@supports (content-visibility: auto) {\n  html:not([data-resource-governor-ai-runtime=\"2\"]) main article,\n  html:not([data-resource-governor-ai-runtime=\"2\"]) main [role=\"article\"],\n  html:not([data-resource-governor-ai-runtime=\"2\"]) main [data-testid*=\"conversation\"],\n  html:not([data-resource-governor-ai-runtime=\"2\"]) main [data-testid*=\"message\"],\n  html:not([data-resource-governor-ai-runtime=\"2\"]) main [data-message-author-role],\n  html:not([data-resource-governor-ai-runtime=\"2\"]) [data-radix-scroll-area-viewport] article {\n    content-visibility: auto !important;\n    contain-intrinsic-size: 1px 720px !important;\n  }\n}\n",
   "\n@supports (content-visibility: auto) {\n  video:not(:hover):not(:focus-within),\n  canvas:not(:hover):not(:focus-within) {\n    content-visibility: auto !important;\n    contain-intrinsic-size: 1px 360px !important;\n  }\n}\n",
   "\n[class*=\"animate-\"],\n[class*=\"animation\"],\n[class*=\"spinner\"],\n[class*=\"pulse\"],\n[class*=\"shimmer\"],\n[data-state=\"loading\"] {\n  animation-duration: 1ms !important;\n  animation-iteration-count: 1 !important;\n  transition-duration: 1ms !important;\n}\n",

@@ -1,6 +1,6 @@
 export type PolicyMode = "manual" | "conservative" | "balanced" | "aggressive" | "pressureAdaptive" | "custom";
 
-export type NetworkDietMode = "off" | "light";
+export type NetworkFilteringMode = "off" | "light";
 
 export type PowerPolicyMode = "off" | "batterySaver" | "lowBatteryAggressive";
 
@@ -14,14 +14,14 @@ export interface DomainDiscardRule {
   createdAt: number;
 }
 
-export type ExperimentalOptimizerItemId =
+export type PageOptimizerItemId =
   | "offscreenRendering"
   | "mediaContainment"
   | "animationLimiter"
   | "visualEffectsReducer"
   | "codeBlockContainment"
   | "imageContainment"
-  | "chatgptConversationOptimizer"
+  | "aiConversationOptimizer"
   | "reducedMotionMode"
   | "backgroundAnimationPause"
   | "offscreenMediaPause";
@@ -36,7 +36,7 @@ export interface PageOptimizerItemMetrics {
 
 export interface PageOptimizerMetrics {
   runtimeActive: boolean;
-  items: Partial<Record<ExperimentalOptimizerItemId, PageOptimizerItemMetrics>>;
+  items: Partial<Record<PageOptimizerItemId, PageOptimizerItemMetrics>>;
   scanDurationMs?: number;
   observedTargetCount?: number;
   changingRegionCount?: number;
@@ -153,16 +153,16 @@ export interface Settings {
   syncSettings: boolean;
   syncProtectionRules: boolean;
   syncFocusSets: boolean;
-  networkDietMode: NetworkDietMode;
+  networkFilteringMode: NetworkFilteringMode;
   keepDiscardLogLimit: number;
   keepSessionLimit: number;
   showBadge: boolean;
   privacyMode: boolean;
-  experimentalOptimizerEnabled: boolean;
-  experimentalOptimizerAllSites: boolean;
-  experimentalOptimizerExcludedDomains: string[];
-  experimentalOptimizerItems: Record<ExperimentalOptimizerItemId, boolean>;
-  experimentalOptimizerSiteDomains: string[];
+  pageOptimizerEnabled: boolean;
+  pageOptimizerAllSites: boolean;
+  pageOptimizerExcludedDomains: string[];
+  pageOptimizerItems: Record<PageOptimizerItemId, boolean>;
+  pageOptimizerSiteDomains: string[];
   domainDiscardRules: DomainDiscardRule[];
   snoozeUntil?: number;
   snoozeIndefinitely?: boolean;
@@ -733,7 +733,7 @@ export interface TabFocusToggleResult {
   cleanupEligibleCount: number;
 }
 
-export interface ExperimentalOptimizerStatus {
+export interface PageOptimizerStatus {
   enabledInSettings: boolean;
   allSitesEnabled: boolean;
   allSitesAccessGranted: boolean;
@@ -745,7 +745,7 @@ export interface ExperimentalOptimizerStatus {
   canToggleActiveTab: boolean;
   siteDomains: string[];
   siteAccessGrantedCount?: number;
-  items: ExperimentalOptimizerItemStatus[];
+  items: PageOptimizerItemStatus[];
   warning: string;
   reason?: string;
   activeTabId?: number;
@@ -755,13 +755,13 @@ export interface ExperimentalOptimizerStatus {
   pageMetrics?: PageOptimizerMetrics;
 }
 
-export interface ExperimentalOptimizerToggleResult extends ExperimentalOptimizerStatus {
+export interface PageOptimizerToggleResult extends PageOptimizerStatus {
   changed: boolean;
 }
 
-export interface ExperimentalOptimizerItemStatus {
+export interface PageOptimizerItemStatus {
   metrics?: PageOptimizerItemMetrics;
-  id: ExperimentalOptimizerItemId;
+  id: PageOptimizerItemId;
   label: string;
   description: string;
   enabled: boolean;
@@ -816,7 +816,7 @@ export interface AppState {
   syncStatus?: SyncStatus;
   windowSummaries?: WindowSummary[];
   currentTabProtection?: CurrentTabProtectionStatus;
-  experimentalOptimizerStatus?: ExperimentalOptimizerStatus;
+  pageOptimizerStatus?: PageOptimizerStatus;
 }
 
 export type ScanReason = "startup" | "periodic" | "manual";

@@ -49,7 +49,7 @@ export interface PowerPolicyOptions {
   maxDiscardsOnLowBattery: number;
   maxDiscardsOnCriticalBattery: number;
   minimumInactiveMinutes: number;
-  enableNetworkDietOnLowBattery: boolean;
+  enableNetworkFilteringOnLowBattery: boolean;
 }
 
 export type PowerPolicyStatus =
@@ -66,7 +66,7 @@ export interface PowerPolicyAdjustment {
   batteryLevel: number | null;
   inactiveMinutes: number;
   maxAutoDiscardsPerScan: number;
-  networkDietMode: Settings["networkDietMode"];
+  networkFilteringMode: Settings["networkFilteringMode"];
   reason: string;
 }
 
@@ -80,7 +80,7 @@ const DEFAULT_POWER_POLICY_OPTIONS: PowerPolicyOptions = {
   maxDiscardsOnLowBattery: 2,
   maxDiscardsOnCriticalBattery: 1,
   minimumInactiveMinutes: 2,
-  enableNetworkDietOnLowBattery: true
+  enableNetworkFilteringOnLowBattery: true
 };
 
 /**
@@ -93,7 +93,7 @@ const DEFAULT_POWER_POLICY_OPTIONS: PowerPolicyOptions = {
 export function adjustPolicyForPowerState(input: {
   powerState?: PowerStateSnapshot | null;
   inactiveMinutes: number;
-  settings: Pick<Settings, "maxAutoDiscardsPerScan" | "networkDietMode">;
+  settings: Pick<Settings, "maxAutoDiscardsPerScan" | "networkFilteringMode">;
   options?: Partial<PowerPolicyOptions>;
 }): PowerPolicyAdjustment {
   const baseInactiveMinutes = nonNegativeFinite(input.inactiveMinutes, 0);
@@ -108,7 +108,7 @@ export function adjustPolicyForPowerState(input: {
     batteryLevel,
     inactiveMinutes: baseInactiveMinutes,
     maxAutoDiscardsPerScan: baseMaxDiscards,
-    networkDietMode: input.settings.networkDietMode,
+    networkFilteringMode: input.settings.networkFilteringMode,
     reason
   });
 
@@ -168,13 +168,13 @@ export function adjustPolicyForPowerState(input: {
   const inactiveMinutes =
     baseInactiveMinutes === 0 ? 0 : Math.max(minimumInactiveMinutes, Math.ceil(baseInactiveMinutes * safeMultiplier));
   const maxAutoDiscardsPerScan = Math.min(baseMaxDiscards, safeCap);
-  const enableNetworkDiet =
-    configured.enableNetworkDietOnLowBattery && (status === "lowBattery" || status === "criticalBattery");
-  const networkDietMode = enableNetworkDiet ? "light" : input.settings.networkDietMode;
+  const enableNetworkFiltering =
+    configured.enableNetworkFilteringOnLowBattery && (status === "lowBattery" || status === "criticalBattery");
+  const networkFilteringMode = enableNetworkFiltering ? "light" : input.settings.networkFilteringMode;
   const applied =
     inactiveMinutes !== baseInactiveMinutes ||
     maxAutoDiscardsPerScan !== baseMaxDiscards ||
-    networkDietMode !== input.settings.networkDietMode;
+    networkFilteringMode !== input.settings.networkFilteringMode;
 
   return {
     status,
@@ -182,12 +182,12 @@ export function adjustPolicyForPowerState(input: {
     batteryLevel: state.level,
     inactiveMinutes,
     maxAutoDiscardsPerScan,
-    networkDietMode,
+    networkFilteringMode,
     reason:
       status === "criticalBattery"
-        ? "Critical battery policy uses an earlier threshold, a one-tab cleanup cap, and light network diet."
+        ? "Critical battery policy uses an earlier threshold, a one-tab cleanup cap, and light network filtering."
         : status === "lowBattery"
-          ? "Low battery policy uses an earlier threshold, a small cleanup cap, and light network diet."
+          ? "Low battery policy uses an earlier threshold, a small cleanup cap, and light network filtering."
           : "Battery policy makes a small, bounded adjustment while preserving configured protections."
   };
 }

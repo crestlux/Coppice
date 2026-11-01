@@ -1,7 +1,7 @@
-import type { ExperimentalOptimizerItemId, ExperimentalOptimizerItemStatus, Settings } from "./types";
+import type { PageOptimizerItemId, PageOptimizerItemStatus, Settings } from "./types";
 
 export const OPTIMIZER_CATALOG: ReadonlyArray<{
-  id: ExperimentalOptimizerItemId;
+  id: PageOptimizerItemId;
   label: string;
   description: string;
 }> = [
@@ -11,12 +11,12 @@ export const OPTIMIZER_CATALOG: ReadonlyArray<{
   { id: "visualEffectsReducer", label: "Visual effects reducer", description: "Reduces large blurs and shadows." },
   { id: "codeBlockContainment", label: "Code block rendering", description: "Defers distant code; editors stay active." },
   { id: "imageContainment", label: "Image rendering", description: "Defers distant images without changing their size." },
-  { id: "chatgptConversationOptimizer", label: "AI conversation optimizer", description: "Defers older messages and sections of long answers." },
+  { id: "aiConversationOptimizer", label: "AI conversation optimizer", description: "Defers older messages and sections of long answers." },
   { id: "reducedMotionMode", label: "Reduced motion", description: "Shortens animations and transitions." },
   { id: "backgroundAnimationPause", label: "Background animation pause", description: "Resumes when you return to the tab." },
   { id: "offscreenMediaPause", label: "Offscreen video pause", description: "Only silent autoplay loops; your playback stays running." }
 ];
 
-export function optimizerItemStatuses(settings: Pick<Settings, "experimentalOptimizerItems">): ExperimentalOptimizerItemStatus[] {
-  return OPTIMIZER_CATALOG.map(item => ({ ...item, enabled: settings.experimentalOptimizerItems[item.id] }));
+export function optimizerItemStatuses(settings: Pick<Settings, "pageOptimizerItems">): PageOptimizerItemStatus[] {
+  return OPTIMIZER_CATALOG.map(item => ({ ...item, enabled: settings.pageOptimizerItems[item.id] }));
 }

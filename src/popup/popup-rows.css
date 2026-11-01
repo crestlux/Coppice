@@ -268,10 +268,10 @@ html { height: 600px; min-height: 0; overflow: hidden; }
 .resource-detail-grid .resource-detail-card > strong { font-variant-numeric: tabular-nums; }
 
 /* Page optimizer: the controls lead, the items read as one list. */
-.view-panel .experimental-optimizer { padding: 0; border: 0; background: transparent; }
+.view-panel .page-optimizer { padding: 0; border: 0; background: transparent; }
 /* The view title already says "Page optimizer"; the card keeps it for screen readers only. */
-.experimental-optimizer .optimizer-heading-copy h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.experimental-optimizer .optimizer-details strong { color: var(--text); font-size: .8125rem; font-weight: 500; }
+.page-optimizer .optimizer-heading-copy h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.page-optimizer .optimizer-details strong { color: var(--text); font-size: .8125rem; font-weight: 500; }
 .optimizer-item-list { display: grid; gap: 0; }
 .optimizer-item-list:empty { display: none; }
 .optimizer-item-list .optimizer-item { padding: 11px 14px; border: 0; border-radius: 0; background: transparent; }

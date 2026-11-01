@@ -1,4 +1,5 @@
 import { SCAN_ALARM_NAME } from "../shared/constants";
+import { LEGACY_NAMES } from "../shared/legacyNames";
 import { ensureStorageDefaults, getSettings, getLastPressure, getWindowPolicies } from "../shared/storage";
 import type { Settings, PressureSnapshot } from "../shared/types";
 import { syncDnrRules } from "./dnr";
@@ -6,7 +7,7 @@ import { runScan } from "./scanner";
 import { automaticScanInterval } from "./automation";
 import { captureTimelineSnapshot } from "./recovery";
 import type { ScanReason } from "../shared/types";
-import { reconcileExperimentalOptimizerSettings } from "./optimizer";
+import { reconcilePageOptimizerSettings } from "./optimizer";
 import { reconcileWorkProtection } from "./workProtection";
 
 export interface InitializeExtensionOptions {
@@ -40,19 +41,20 @@ async function ensureExtensionReady(): Promise<void> {
       await ensureStorageDefaults();
       const settings = await getSettings();
       await ensureScanAlarm(settings);
-      await syncDnrRules(settings.networkDietMode);
+      await chrome.alarms.clear(LEGACY_NAMES.scanAlarm);
+      await syncDnrRules(settings.networkFilteringMode);
       await reconcileWorkProtection();
       try {
         // storage.session markers survive MV3 worker suspension, so tracked
         // documents are not injected twice. After a browser/extension restart
         // those markers are gone and saved-site tabs are applied once here even
         // if Chrome emits no tabs.onUpdated event for an already open tab.
-        await reconcileExperimentalOptimizerSettings(undefined, {
+        await reconcilePageOptimizerSettings(undefined, {
           dedupe: true,
           reapplyTracked: false
         });
       } catch (error) {
-        console.warn("Failed to reconcile Experimental Optimizer at startup", error);
+        console.warn("Failed to reconcile Page optimizer at startup", error);
       }
       extensionReady = true;
     })().finally(() => {

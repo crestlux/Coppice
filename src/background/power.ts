@@ -76,7 +76,7 @@ async function readBatteryBridge(): Promise<BatteryBridgeResponse> {
     try {
       await ensureOffscreenDocument();
       return await chrome.runtime.sendMessage<BatteryBridgeResponse>({
-        target: "resource-governor-offscreen",
+        target: "coppice-offscreen",
         action: "getBatteryStatus"
       });
     } finally {

@@ -1,11 +1,11 @@
-import type { ExperimentalOptimizerItemId, PageOptimizerMetrics, Settings } from "../shared/types";
+import type { PageOptimizerItemId, PageOptimizerMetrics, Settings } from "../shared/types";
 
 type Command = "install" | "remove" | "probe";
-type Configuration = Partial<Settings["experimentalOptimizerItems"]>;
+type Configuration = Partial<Settings["pageOptimizerItems"]>;
 
 /** Serialized by chrome.scripting; keep every runtime dependency inside this function. */
 export function runPageOptimizerInPage(command: Command, configuration: Configuration = {}): PageOptimizerMetrics {
-  const key = "__resourceGovernorPageOptimizerV1";
+  const key = "__coppicePageOptimizerV1";
   const host = globalThis as typeof globalThis & {
     [key]?: { stop(): void; probe(): PageOptimizerMetrics; configurationKey: string };
   };
@@ -16,14 +16,14 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
   const configurationKey = Object.entries(configuration).filter(([, value]) => value).map(([id]) => id).sort().join("|");
   // The conversation runtime is installed separately. An empty configuration
   // must not observe or repeatedly walk the site's DOM.
-  if (!Object.entries(configuration).some(([id, value]) => id !== "chatgptConversationOptimizer" && value)) {
+  if (!Object.entries(configuration).some(([id, value]) => id !== "aiConversationOptimizer" && value)) {
     let active = true;
     const probe = (): PageOptimizerMetrics => ({ runtimeActive: active, items: {}, discoveryComplete: true, scanDurationMs: 0, configurationKey });
     host[key] = { stop: () => { active = false; }, probe, configurationKey };
     return probe();
   }
 
-  type Id = ExperimentalOptimizerItemId;
+  type Id = PageOptimizerItemId;
   type Owned = { original: string; priority: string; applied: string; appliedPriority: string };
   type Candidate = { id: Id; near: boolean; invalid: boolean; measuredWidth?: number; measuredHeight?: number };
   type ContainmentPlan = {
@@ -179,7 +179,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
   const pendingNodes = new Map<Node, boolean>();
   const pendingChecks = new Set<Element>();
   const repeatedGroups = new WeakMap<Element, Set<Element>>();
-  const marker = "data-resource-governor-page-kind";
+  const marker = "data-coppice-page-kind";
   const limit = 800;
   const margin = 1200;
   const enabled = (id: Id): boolean => configuration[id] === true;
@@ -244,7 +244,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
   const managedAncestor = (element: HTMLElement): boolean => {
     let parent = parentAcrossShadow(element);
     while (parent) {
-      if (contained.has(parent as HTMLElement) || parent.hasAttribute("data-resource-governor-ai-turn")) return true;
+      if (contained.has(parent as HTMLElement) || parent.hasAttribute("data-coppice-ai-turn")) return true;
       parent = parentAcrossShadow(parent);
     }
     return false;
@@ -258,7 +258,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
   const protectedContent = (element: Element): boolean => {
     // Conversation layout belongs to its dedicated runtime, even before async
     // discovery adds markers or when that runtime is disabled.
-    const conversation = '[data-resource-governor-ai-candidate],[data-message-author-role],[data-conversation-role="user"],[data-conversation-role="assistant"],[data-turn-key],[data-thread-find-target="conversation"],[data-testid^="conversation-turn"],[role="log"],[role="region"][aria-label="Conversation"],ol[aria-label^="Conversation"]';
+    const conversation = '[data-coppice-ai-candidate],[data-message-author-role],[data-conversation-role="user"],[data-conversation-role="assistant"],[data-turn-key],[data-thread-find-target="conversation"],[data-testid^="conversation-turn"],[role="log"],[role="region"][aria-label="Conversation"],ol[aria-label^="Conversation"]';
     if (within(element, conversation) || element.querySelector(conversation)) return true;
     if (within(element, 'nav,header,footer,aside,dialog,canvas,[role="dialog"],[role="menu"],[role="navigation"],[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="application"],[role="grid"],[role="treegrid"],[inert],[aria-hidden="true"],[aria-setsize],[aria-rowindex]')) return true;
     // Drawing surfaces can have interactive behavior and geometry reads without
@@ -635,7 +635,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
 
   const addCandidate = (element: HTMLElement | null, id: Id): void => {
     if (!element || candidates.size >= limit || insideHorizontalSurface(element) || protectedContent(element) ||
-        element.hasAttribute("data-resource-governor-ai-turn")) return;
+        element.hasAttribute("data-coppice-ai-turn")) return;
     const existing = candidates.get(element);
     if (existing) return;
     if (!hasRenderingWork(element)) { lightweightContent.add(element); return; }
@@ -1158,7 +1158,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
     mutations.set(scope, observer);
     observer.observe(scope, { childList: true, subtree: true, characterData: true, attributes: true,
       attributeOldValue: true,
-      attributeFilter: ["aria-busy", "data-streaming", "data-is-streaming", "controls", "muted", "autoplay", "loop", "class", "style", "hidden", "open", "role", "inert", "contenteditable", "aria-hidden", "aria-setsize", "aria-rowindex", "src", "srcset", "sizes", "width", "height", "data-resource-governor-ai-candidate"] });
+      attributeFilter: ["aria-busy", "data-streaming", "data-is-streaming", "controls", "muted", "autoplay", "loop", "class", "style", "hidden", "open", "role", "inert", "contenteditable", "aria-hidden", "aria-setsize", "aria-rowindex", "src", "srcset", "sizes", "width", "height", "data-coppice-ai-candidate"] });
     scope.addEventListener("animationstart", scheduleAnimations, true);
     scope.addEventListener("animationcancel", scheduleAnimations, true);
     scope.addEventListener("animationend", scheduleAnimations, true);
@@ -1276,7 +1276,7 @@ export function runPageOptimizerInPage(command: Command, configuration: Configur
   const probe = (): PageOptimizerMetrics => {
     const items: PageOptimizerMetrics["items"] = {};
     const count = (id: Id) => items[id] ??= { detected: 0, applied: 0, skipped: 0 };
-    for (const id of Object.keys(configuration) as Id[]) if (enabled(id) && id !== "chatgptConversationOptimizer") count(id);
+    for (const id of Object.keys(configuration) as Id[]) if (enabled(id) && id !== "aiConversationOptimizer") count(id);
     for (const [element, candidate] of candidates) {
       if (!element.isConnected) continue;
       const metric = count(candidate.id);
@@ -1376,13 +1376,13 @@ export async function probeOptimizerInstallation(tabId: number) {
     target: { tabId },
     func: function readOptimizerInstallation() {
       const globals = globalThis as typeof globalThis & {
-        __resourceGovernorPageOptimizerV1?: { configurationKey?: string };
-        __resourceGovernorAiConversationOptimizerV2?: unknown;
+        __coppicePageOptimizerV1?: { configurationKey?: string };
+        __coppiceAiConversationOptimizerV2?: unknown;
       };
       return {
-        pageInstalled: Boolean(globals.__resourceGovernorPageOptimizerV1),
-        configurationKey: globals.__resourceGovernorPageOptimizerV1?.configurationKey,
-        aiInstalled: Boolean(globals.__resourceGovernorAiConversationOptimizerV2)
+        pageInstalled: Boolean(globals.__coppicePageOptimizerV1),
+        configurationKey: globals.__coppicePageOptimizerV1?.configurationKey,
+        aiInstalled: Boolean(globals.__coppiceAiConversationOptimizerV2)
       };
     }
   });

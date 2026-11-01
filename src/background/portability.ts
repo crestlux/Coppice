@@ -7,6 +7,8 @@ import {
   createReplaceImportPlan,
   createSelectiveSyncProjection,
   normalizeSelectiveSyncProjection,
+  hasSyncProjection,
+  removeLegacySyncKeys,
   type BackupEnvelope,
   type BackupSectionName,
   type ImportMode,
@@ -329,7 +331,7 @@ async function doPushSelectiveSync(): Promise<SyncStatus> {
   try {
     // Changing this device's selection must not delete another device's sections.
     const remote = await chrome.storage.sync.get(null);
-    const previous = remote[SYNC_MANIFEST_KEY] ? normalizeSelectiveSyncProjection(remote) : undefined;
+    const previous = hasSyncProjection(remote) ? normalizeSelectiveSyncProjection(remote) : undefined;
     const source: Record<string, unknown> = { ...previous?.sections };
     const local = await getPortableSource();
     for (const section of sections) source[section] = local[section];
@@ -337,6 +339,7 @@ async function doPushSelectiveSync(): Promise<SyncStatus> {
     const projection = createSelectiveSyncProjection(source, { selectedSections });
     ignoreRemoteSyncChangesUntil = Date.now() + 3_000;
     await chrome.storage.sync.set(projection.items);
+    await removeLegacySyncKeys(remote);
     const status = syncStatus({
       enabled: true,
       lastSyncedAt: projection.createdAt,
@@ -371,7 +374,8 @@ async function doPullSelectiveSync(): Promise<ImportPlan> {
         mode: "replace" as const, schemaVersion: envelope.schemaVersion,
         sourceCreatedAt: envelope.createdAt, selectedSections: [], writes: {}
       };
-      const filtered = { ...envelope, selectedSections };
+      const filtered = { ...envelope, selectedSections,
+        sections: Object.fromEntries(selectedSections.map(section => [section, envelope.sections[section]])) };
       const plan = createMergeImportPlan(await getPortableSource(), filtered);
       // Sync collections are authoritative snapshots: merge would resurrect deletions.
       // Settings still merge so device-local sync controls remain untouched.
@@ -381,6 +385,15 @@ async function doPullSelectiveSync(): Promise<ImportPlan> {
       plan.mode = "replace";
       return applyImportPlan(plan);
     });
+    if (!Object.hasOwn(remote, SYNC_MANIFEST_KEY)) {
+      // Preserve every remote section, including sections this device does not import.
+      const projection = createSelectiveSyncProjection(envelope.sections, {
+        selectedSections: envelope.selectedSections as SyncSectionName[], createdAt: envelope.createdAt
+      });
+      ignoreRemoteSyncChangesUntil = Date.now() + 3_000;
+      await chrome.storage.sync.set(projection.items);
+    }
+    await removeLegacySyncKeys(remote);
     await saveSyncStatus({
       enabled: true,
       lastSyncedAt: Date.now(),

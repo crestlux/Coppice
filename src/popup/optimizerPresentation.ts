@@ -1,7 +1,7 @@
-import type { AiConversationOptimizerMetrics, ExperimentalOptimizerItemStatus, ExperimentalOptimizerStatus } from "../shared/types";
+import type { AiConversationOptimizerMetrics, PageOptimizerItemStatus, PageOptimizerStatus } from "../shared/types";
 
 type OptimizerMetricStatus = Pick<
-  ExperimentalOptimizerStatus,
+  PageOptimizerStatus,
   | "activeSiteAccessGranted"
   | "activeSiteEnabled"
   | "activeTabOptimized"
@@ -10,9 +10,9 @@ type OptimizerMetricStatus = Pick<
   | "aiConversationMetrics"
   | "pageMetrics"
   | "reason"
-> & Partial<Pick<ExperimentalOptimizerStatus, "allSitesEnabled" | "allSitesAccessGranted" | "activeSiteExcluded" | "activeTabPaused">>;
+> & Partial<Pick<PageOptimizerStatus, "allSitesEnabled" | "allSitesAccessGranted" | "activeSiteExcluded" | "activeTabPaused">>;
 
-export function optimizerOverview(status: ExperimentalOptimizerStatus | undefined): {
+export function optimizerOverview(status: PageOptimizerStatus | undefined): {
   mode: string; detail: string; tone: "neutral" | "enabled" | "warning"; action: "enable" | "allow" | "none";
 } {
   if (!status) return { mode: "Checking…", detail: "", tone: "neutral", action: "none" };
@@ -96,10 +96,10 @@ export function optimizerMetricText(status: OptimizerMetricStatus): string {
   return "Not optimized.";
 }
 
-export function optimizerItemMetricText(item: ExperimentalOptimizerItemStatus, applied: boolean, ai?: AiConversationOptimizerMetrics): string {
+export function optimizerItemMetricText(item: PageOptimizerItemStatus, applied: boolean, ai?: AiConversationOptimizerMetrics): string {
   if (!item.enabled) return "Off";
   if (!applied) return "";
-  if (item.id === "chatgptConversationOptimizer") {
+  if (item.id === "aiConversationOptimizer") {
     if (!ai) return "Measurement unavailable";
     if (ai.optimizedSectionCount) return ai.optimizedSectionCount + " sections in long answers optimized";
     return ai.supported ? ai.optimizedTurnCount + " of " + ai.detectedTurnCount + " messages optimized" : "No conversation detected on this page";

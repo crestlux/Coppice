@@ -2,9 +2,9 @@ import type { AiConversationOptimizerMetrics } from "../shared/types";
 
 export const AI_CONVERSATION_OPTIMIZER_CSS = `
 @supports (content-visibility: auto) {
-  [data-resource-governor-ai-turn="optimized"] {
+  [data-coppice-ai-turn="optimized"] {
     content-visibility: auto !important;
-    contain-intrinsic-block-size: auto var(--resource-governor-ai-turn-size, 720px) !important;
+    contain-intrinsic-block-size: auto var(--coppice-ai-turn-size, 720px) !important;
   }
 }
 `;
@@ -18,17 +18,17 @@ type AiConversationRuntimeCommand = "install" | "remove" | "probe";
 export function runAiConversationOptimizerInPage(
   command: AiConversationRuntimeCommand
 ): AiConversationOptimizerMetrics {
-  const runtimeKey = "__resourceGovernorAiConversationOptimizerV2";
-  const turnAttribute = "data-resource-governor-ai-turn";
-  const candidateAttribute = "data-resource-governor-ai-candidate";
-  const turnSizeProperty = "--resource-governor-ai-turn-size";
-  const runtimeAttribute = "data-resource-governor-ai-runtime";
-  const providerAttribute = "data-resource-governor-ai-provider";
-  const detectedAttribute = "data-resource-governor-ai-detected";
-  const recentAttribute = "data-resource-governor-ai-recent";
-  const excludedAttribute = "data-resource-governor-ai-excluded";
-  const strategyAttribute = "data-resource-governor-ai-strategy";
-  const sectionAttribute = "data-resource-governor-ai-section";
+  const runtimeKey = "__coppiceAiConversationOptimizerV2";
+  const turnAttribute = "data-coppice-ai-turn";
+  const candidateAttribute = "data-coppice-ai-candidate";
+  const turnSizeProperty = "--coppice-ai-turn-size";
+  const runtimeAttribute = "data-coppice-ai-runtime";
+  const providerAttribute = "data-coppice-ai-provider";
+  const detectedAttribute = "data-coppice-ai-detected";
+  const recentAttribute = "data-coppice-ai-recent";
+  const excludedAttribute = "data-coppice-ai-excluded";
+  const strategyAttribute = "data-coppice-ai-strategy";
+  const sectionAttribute = "data-coppice-ai-section";
   const root = document.documentElement;
   const runtimeGlobal = globalThis as typeof globalThis & {
     [runtimeKey]?: {

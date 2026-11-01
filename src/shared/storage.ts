@@ -29,6 +29,7 @@ import type {
   WorkProtectionHold
 } from "./types";
 import { normalizeHostname } from "./url";
+import { LEGACY_NAMES, migrateSettingsNames } from "./legacyNames";
 
 type LocalStorageShape = {
   [STORAGE_KEYS.SETTINGS]?: Partial<Settings>;
@@ -52,7 +53,7 @@ type SessionStorageShape = {
   [SESSION_KEYS.AUTOMATION_PLAN]?: AutomationPlan;
   [SESSION_KEYS.TEMPORARY_TAB_PROTECTIONS]?: TemporaryTabProtection[];
   [SESSION_KEYS.FOCUS_MODE_ENABLED]?: boolean;
-  [SESSION_KEYS.EXPERIMENTAL_OPTIMIZED_TABS]?: OptimizedTab[];
+  [SESSION_KEYS.PAGE_OPTIMIZED_TABS]?: OptimizedTab[];
   [SESSION_KEYS.OPTIMIZER_PAUSED_TABS]?: Array<{ tabId: number; url?: string }>;
   [SESSION_KEYS.TAB_ACCURATE_METRICS]?: TabAccurateMetrics[];
   [SESSION_KEYS.LAST_MEMORY_RELEASE]?: MemoryReleaseEstimate;
@@ -95,7 +96,8 @@ async function setSession(items: SessionStorageShape): Promise<void> {
   await chrome.storage.session.set(items);
 }
 
-export function normalizeSettings(settings?: Partial<Settings>): Settings {
+export function normalizeSettings(input?: Partial<Settings> | Record<string, unknown>): Settings {
+  const settings = migrateSettingsNames(input) as Partial<Settings>;
   const finiteNumber = (value: unknown, fallback: number, minimum: number, maximum: number, integer = false): number => {
     const numeric = typeof value === "number" && Number.isFinite(value) ? value : fallback;
     const bounded = Math.min(maximum, Math.max(minimum, numeric));
@@ -105,15 +107,15 @@ export function normalizeSettings(settings?: Partial<Settings>): Settings {
     typeof value === "boolean" ? value : fallback;
   const enumValue = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
     typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
-  const optimizerSiteDomains = Array.isArray(settings?.experimentalOptimizerSiteDomains)
+  const optimizerSiteDomains = Array.isArray(settings?.pageOptimizerSiteDomains)
     ? [
         ...new Set(
-          settings.experimentalOptimizerSiteDomains
+          settings.pageOptimizerSiteDomains
             .map(normalizeHostname)
             .filter((domain): domain is string => domain !== null)
         )
       ]
-    : DEFAULT_SETTINGS.experimentalOptimizerSiteDomains;
+    : DEFAULT_SETTINGS.pageOptimizerSiteDomains;
   const seenDiscardRuleDomains = new Set<string>();
   const domainDiscardRules = Array.isArray(settings?.domainDiscardRules)
     ? settings.domainDiscardRules
@@ -156,11 +158,11 @@ export function normalizeSettings(settings?: Partial<Settings>): Settings {
     )
   );
   const optimizerItems = Object.fromEntries(
-    Object.entries(DEFAULT_SETTINGS.experimentalOptimizerItems).map(([key, fallback]) => [
+    Object.entries(DEFAULT_SETTINGS.pageOptimizerItems).map(([key, fallback]) => [
       key,
-      booleanValue(settings?.experimentalOptimizerItems?.[key as keyof Settings["experimentalOptimizerItems"]], fallback)
+      booleanValue(settings?.pageOptimizerItems?.[key as keyof Settings["pageOptimizerItems"]], fallback)
     ])
-  ) as Settings["experimentalOptimizerItems"];
+  ) as Settings["pageOptimizerItems"];
 
   return {
     ...DEFAULT_SETTINGS,
@@ -188,11 +190,11 @@ export function normalizeSettings(settings?: Partial<Settings>): Settings {
     memoryHighAvailableRatio,
     memoryEmergencyAvailableRatio,
     cpuHighRatio: finiteNumber(settings?.cpuHighRatio, DEFAULT_SETTINGS.cpuHighRatio, 0.01, 1),
-    experimentalOptimizerItems: optimizerItems,
-    experimentalOptimizerSiteDomains: optimizerSiteDomains,
-    experimentalOptimizerAllSites: booleanValue(settings?.experimentalOptimizerAllSites, false),
-    experimentalOptimizerExcludedDomains: Array.isArray(settings?.experimentalOptimizerExcludedDomains)
-      ? [...new Set(settings.experimentalOptimizerExcludedDomains.map(normalizeHostname).filter((domain): domain is string => domain !== null))]
+    pageOptimizerItems: optimizerItems,
+    pageOptimizerSiteDomains: optimizerSiteDomains,
+    pageOptimizerAllSites: booleanValue(settings?.pageOptimizerAllSites, false),
+    pageOptimizerExcludedDomains: Array.isArray(settings?.pageOptimizerExcludedDomains)
+      ? [...new Set(settings.pageOptimizerExcludedDomains.map(normalizeHostname).filter((domain): domain is string => domain !== null))]
       : [],
     domainDiscardRules,
     powerPolicyMode:
@@ -248,7 +250,7 @@ export function normalizeSettings(settings?: Partial<Settings>): Settings {
     syncSettings: booleanValue(settings?.syncSettings, DEFAULT_SETTINGS.syncSettings),
     syncProtectionRules: booleanValue(settings?.syncProtectionRules, DEFAULT_SETTINGS.syncProtectionRules),
     syncFocusSets: booleanValue(settings?.syncFocusSets, DEFAULT_SETTINGS.syncFocusSets),
-    networkDietMode: enumValue(settings?.networkDietMode, ["off", "light"], DEFAULT_SETTINGS.networkDietMode),
+    networkFilteringMode: enumValue(settings?.networkFilteringMode, ["off", "light"], DEFAULT_SETTINGS.networkFilteringMode),
     keepDiscardLogLimit: finiteNumber(
       settings?.keepDiscardLogLimit,
       DEFAULT_SETTINGS.keepDiscardLogLimit,
@@ -259,9 +261,9 @@ export function normalizeSettings(settings?: Partial<Settings>): Settings {
     keepSessionLimit: finiteNumber(settings?.keepSessionLimit, DEFAULT_SETTINGS.keepSessionLimit, 1, 5_000, true),
     showBadge: booleanValue(settings?.showBadge, DEFAULT_SETTINGS.showBadge),
     privacyMode: booleanValue(settings?.privacyMode, DEFAULT_SETTINGS.privacyMode),
-    experimentalOptimizerEnabled: booleanValue(
-      settings?.experimentalOptimizerEnabled,
-      DEFAULT_SETTINGS.experimentalOptimizerEnabled
+    pageOptimizerEnabled: booleanValue(
+      settings?.pageOptimizerEnabled,
+      DEFAULT_SETTINGS.pageOptimizerEnabled
     ),
     snoozeIndefinitely: booleanValue(settings?.snoozeIndefinitely, DEFAULT_SETTINGS.snoozeIndefinitely ?? false),
     ...(typeof settings?.snoozeUntil === "number" &&
@@ -414,11 +416,11 @@ async function pruneTemporaryTabProtectionsUnqueued(openTabIds: Set<number>): Pr
 export const pruneTemporaryTabProtections = serializeMutation(pruneTemporaryTabProtectionsUnqueued);
 
 export async function getOptimizedTabs(): Promise<OptimizedTab[]> {
-  return (await getSession(SESSION_KEYS.EXPERIMENTAL_OPTIMIZED_TABS)) ?? [];
+  return (await getSession(SESSION_KEYS.PAGE_OPTIMIZED_TABS)) ?? [];
 }
 
 async function saveOptimizedTabsUnqueued(tabs: OptimizedTab[]): Promise<void> {
-  await setSession({ [SESSION_KEYS.EXPERIMENTAL_OPTIMIZED_TABS]: tabs });
+  await setSession({ [SESSION_KEYS.PAGE_OPTIMIZED_TABS]: tabs });
 }
 export const saveOptimizedTabs = serializeMutation(saveOptimizedTabsUnqueued);
 
@@ -1122,6 +1124,14 @@ async function ensureStorageDefaultsUnqueued(): Promise<void> {
   }
 
   await setLocal(updates);
+  // Write before removing so interrupted upgrades can be retried without losing tab state.
+  const session = await chrome.storage.session.get([SESSION_KEYS.PAGE_OPTIMIZED_TABS, LEGACY_NAMES.optimizedTabs]);
+  if (Object.hasOwn(session, LEGACY_NAMES.optimizedTabs)) {
+    if (!Object.hasOwn(session, SESSION_KEYS.PAGE_OPTIMIZED_TABS)) {
+      await chrome.storage.session.set({ [SESSION_KEYS.PAGE_OPTIMIZED_TABS]: session[LEGACY_NAMES.optimizedTabs] });
+    }
+    await chrome.storage.session.remove(LEGACY_NAMES.optimizedTabs);
+  }
 }
 export const ensureStorageDefaults = serializeMutation(ensureStorageDefaultsUnqueued);
 

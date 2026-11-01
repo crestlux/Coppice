@@ -9,14 +9,14 @@ interface NavigatorWithBattery extends Navigator {
 }
 
 interface BatteryBridgeRequest {
-  target: "resource-governor-offscreen";
+  target: "coppice-offscreen";
   action: "getBatteryStatus";
 }
 
 function isBatteryBridgeRequest(message: unknown): message is BatteryBridgeRequest {
   if (!message || typeof message !== "object") return false;
   const candidate = message as Partial<BatteryBridgeRequest>;
-  return candidate.target === "resource-governor-offscreen" && candidate.action === "getBatteryStatus";
+  return candidate.target === "coppice-offscreen" && candidate.action === "getBatteryStatus";
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

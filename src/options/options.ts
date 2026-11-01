@@ -3,7 +3,7 @@ import { sendAppMessage } from "../shared/messages";
 import type {
   AppState,
   EffectReport24h,
-  NetworkDietMode,
+  NetworkFilteringMode,
   PolicyMode,
   PolicySimulationResult,
   PowerPolicyMode,
@@ -107,7 +107,7 @@ const elements = {
   newRuleType: getSelect("newRuleType"),
   newRuleValue: getInput("newRuleValue"),
   rulesList: getElement("rulesList"),
-  networkDietMode: getSelect("networkDietMode"),
+  networkFilteringMode: getSelect("networkFilteringMode"),
   includeActive: getInput("includeActive"),
   includePinned: getInput("includePinned"),
   saveWindowButton: getButton("saveWindowButton"),
@@ -377,7 +377,7 @@ function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function isLowBatteryNetworkDietActive(state: AppState): boolean {
+function isLowBatteryNetworkFilteringActive(state: AppState): boolean {
   const power = state.powerState;
   return Boolean(
     state.settings.powerPolicyMode !== "off" &&
@@ -464,7 +464,7 @@ function renderIntelligence(state: AppState): void {
     elements.powerStateDetail.textContent = power.reason ?? "Chrome did not expose battery information on this device.";
   } else {
     elements.powerStateSummary.textContent = `${formatPercent(power.level)} · ${power.charging ? "charging" : "on battery"}`;
-    const network = isLowBatteryNetworkDietActive(state) ? "Light network filtering is on to save battery." : "";
+    const network = isLowBatteryNetworkFilteringActive(state) ? "Light network filtering is on to save battery." : "";
     elements.powerStateDetail.textContent = power.policyApplied
       ? `Cleanup is adjusted to save battery.${network ? ` ${network}` : ""}`
       : network || "No battery adjustment needed.";
@@ -970,7 +970,7 @@ function render(state: AppState): void {
   if (!dirtySettingsGroups.has("advancedHeading")) renderAdvanced(state.settings);
   if (!dirtySettingsGroups.has("automationHeading")) renderAutomation(state);
   if (!dirtySettingsGroups.has("syncHeading")) renderSyncSettings(state.settings);
-  elements.networkDietMode.value = state.settings.networkDietMode;
+  elements.networkFilteringMode.value = state.settings.networkFilteringMode;
   renderIntelligence(state);
   renderWindowPolicies(state);
   renderRules(state);
@@ -1337,11 +1337,11 @@ for (const input of [
   });
 }
 
-elements.networkDietMode.addEventListener("change", () => {
+elements.networkFilteringMode.addEventListener("change", () => {
   void runAction("Update network filtering", () =>
     sendAppMessage({
-      type: "setNetworkDietMode",
-      mode: elements.networkDietMode.value as NetworkDietMode
+      type: "setNetworkFilteringMode",
+      mode: elements.networkFilteringMode.value as NetworkFilteringMode
     })
   );
 });

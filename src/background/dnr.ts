@@ -1,8 +1,8 @@
-import type { NetworkDietMode } from "../shared/types";
+import type { NetworkFilteringMode } from "../shared/types";
 
 export const DNR_DYNAMIC_RULE_ID_START = 10000;
 const DNR_DYNAMIC_RULE_ID_END = 10999;
-let lastSynchronizedMode: NetworkDietMode | null = null;
+let lastSynchronizedMode: NetworkFilteringMode | null = null;
 let syncQueue: Promise<void> = Promise.resolve();
 
 export function getLightRules(): chrome.declarativeNetRequest.Rule[] {
@@ -50,7 +50,7 @@ export function isOwnedDnrRuleId(id: number): boolean {
   return id >= DNR_DYNAMIC_RULE_ID_START && id <= DNR_DYNAMIC_RULE_ID_END;
 }
 
-async function syncDnrRulesNow(mode: NetworkDietMode): Promise<void> {
+async function syncDnrRulesNow(mode: NetworkFilteringMode): Promise<void> {
   if (lastSynchronizedMode === mode) return;
   const currentRules = await chrome.declarativeNetRequest.getDynamicRules();
   const ownedRuleIds = currentRules.map(rule => rule.id).filter(isOwnedDnrRuleId);
@@ -74,7 +74,7 @@ async function syncDnrRulesNow(mode: NetworkDietMode): Promise<void> {
 
 /** Serializes rule replacement so overlapping power/settings refreshes cannot
  * leave Chrome with rules from an older request. */
-export function syncDnrRules(mode: NetworkDietMode): Promise<void> {
+export function syncDnrRules(mode: NetworkFilteringMode): Promise<void> {
   if (mode !== "off" && mode !== "light") {
     return Promise.reject(new Error("Unknown network filtering mode."));
   }

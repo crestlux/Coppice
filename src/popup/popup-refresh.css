@@ -83,7 +83,7 @@ body { min-height: 0; }
 .view-breadcrumb { font-size: .75rem; color: var(--muted); }
 #viewTitle { font-size: 1.25rem; line-height: 1.35; font-weight: 650; }
 .view-panel { gap: 14px; }
-.quick-settings, .info-panel, .resource-detail-card, .release-summary-card, .accurate-mode, .experimental-optimizer, .focus-mode-panel, .performance-actions, .discard-verification, .duplicate-preview, .command-center, .tab-list li {
+.quick-settings, .info-panel, .resource-detail-card, .release-summary-card, .accurate-mode, .page-optimizer, .focus-mode-panel, .performance-actions, .discard-verification, .duplicate-preview, .command-center, .tab-list li {
   border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 14px; box-shadow: none;
 }
 .section-heading h2, .info-panel h3, .quick-settings h2 { font-size: 1rem; font-weight: 650; letter-spacing: normal; text-transform: none; }
@@ -106,7 +106,7 @@ body { min-height: 0; }
 .intelligence-card > strong { font-size: .875rem; }
 .intelligence-card > small { font-size: .8125rem; line-height: 1.5; }
 .intelligence-card > strong, .intelligence-card > small { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
-.experimental-optimizer { gap: 14px; }
+.page-optimizer { gap: 14px; }
 .optimizer-intro { padding: 12px; background: var(--surface-quiet); border: 1px solid var(--line); border-radius: 8px; }
 .optimizer-intro strong, .optimizer-details strong { font-size: .875rem; color: var(--text-strong); }
 .optimizer-intro span, .optimizer-site-note, .optimizer-details span { font-size: .8125rem; line-height: 1.5; color: var(--muted); }

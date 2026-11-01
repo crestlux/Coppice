@@ -46,10 +46,9 @@ user-data*/
 *storageState*.json
 *storage-state*.json
 *cookies*.json
-resource-governor-backup*.json
-resource-governor-sessions*.json
-coppice-backup*.json
-coppice-sessions*.json
+# Keep exported backups private across product naming changes.
+*-backup*.json
+*-sessions*.json
 *.zip
 *.7z
 *.rar

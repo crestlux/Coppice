@@ -787,7 +787,7 @@ h2 {
 }
 
 .accurate-mode,
-.experimental-optimizer {
+.page-optimizer {
   display: grid;
   gap: 10px;
   border: 1px solid var(--line);
@@ -802,7 +802,7 @@ h2 {
   background: linear-gradient(180deg, rgb(86 182 194 / 7%), rgb(44 49 58 / 96%));
 }
 
-.experimental-optimizer {
+.page-optimizer {
   border-color: rgb(229 192 123 / 28%);
   background: linear-gradient(180deg, rgb(229 192 123 / 9%), rgb(44 49 58 / 94%));
 }
@@ -2223,7 +2223,7 @@ h2 {
 .quick-settings,
 .command-center,
 .accurate-mode,
-.experimental-optimizer,
+.page-optimizer,
 .focus-mode-panel,
 .performance-actions,
 .discard-verification,

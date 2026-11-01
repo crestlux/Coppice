@@ -64,7 +64,7 @@ export interface ScanEvaluation {
 const MEMORY_RELEASE_SAMPLE_DELAY_MS = 2000;
 // Unloaded renderers keep exiting and handing memory back to the system for several seconds.
 const MEMORY_RELEASE_SETTLE_DELAY_MS = 15_000;
-let transientPowerNetworkDietActive = false;
+let transientPowerNetworkFilteringActive = false;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => globalThis.setTimeout(resolve, ms));
@@ -740,19 +740,19 @@ export async function collectScanEvaluation(reason: ScanReason, options: { commi
         criticalBatteryLevel: Math.max(0.05, state.settings.lowBatteryThreshold / 2)
       }
     });
-    if (powerAdjustment.networkDietMode !== state.settings.networkDietMode) {
+    if (powerAdjustment.networkFilteringMode !== state.settings.networkFilteringMode) {
       // Reassert on every evaluation. Another settings sync may have restored
       // the configured mode while this transient power adjustment is active;
       // syncDnrRules itself deduplicates unchanged requests.
-      await syncDnrRules(powerAdjustment.networkDietMode);
-      transientPowerNetworkDietActive = true;
-    } else if (transientPowerNetworkDietActive) {
-      await syncDnrRules(state.settings.networkDietMode);
-      transientPowerNetworkDietActive = false;
+      await syncDnrRules(powerAdjustment.networkFilteringMode);
+      transientPowerNetworkFilteringActive = true;
+    } else if (transientPowerNetworkFilteringActive) {
+      await syncDnrRules(state.settings.networkFilteringMode);
+      transientPowerNetworkFilteringActive = false;
     }
-  } else if (transientPowerNetworkDietActive) {
-    await syncDnrRules(state.settings.networkDietMode);
-    transientPowerNetworkDietActive = false;
+  } else if (transientPowerNetworkFilteringActive) {
+    await syncDnrRules(state.settings.networkFilteringMode);
+    transientPowerNetworkFilteringActive = false;
   }
   const openTabIds = new Set(
     tabs.map(tab => tab.id).filter((tabId): tabId is number => typeof tabId === "number")

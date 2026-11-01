@@ -1,6 +1,6 @@
 import type { ProtectionRule, Settings } from "./types";
 
-export const SCAN_ALARM_NAME = "resource-governor-scan";
+export const SCAN_ALARM_NAME = "coppice-scan";
 
 export const STORAGE_KEYS = {
   SETTINGS: "settings",
@@ -27,7 +27,7 @@ export const SESSION_KEYS = {
   LAST_SCAN_AT: "lastScanAt",
   TEMPORARY_TAB_PROTECTIONS: "temporaryTabProtections",
   FOCUS_MODE_ENABLED: "focusModeEnabled",
-  EXPERIMENTAL_OPTIMIZED_TABS: "experimentalOptimizedTabs",
+  PAGE_OPTIMIZED_TABS: "pageOptimizedTabs",
   OPTIMIZER_PAUSED_TABS: "optimizerPausedTabs",
   TAB_ACCURATE_METRICS: "tabAccurateMetrics",
   LAST_MEMORY_RELEASE: "lastMemoryRelease",
@@ -69,27 +69,27 @@ export const DEFAULT_SETTINGS: Settings = {
   syncSettings: true,
   syncProtectionRules: true,
   syncFocusSets: true,
-  networkDietMode: "off",
+  networkFilteringMode: "off",
   keepDiscardLogLimit: 300,
   keepSessionLimit: 100,
   showBadge: true,
   privacyMode: false,
-  experimentalOptimizerEnabled: false,
-  experimentalOptimizerAllSites: false,
-  experimentalOptimizerExcludedDomains: [],
-  experimentalOptimizerItems: {
+  pageOptimizerEnabled: false,
+  pageOptimizerAllSites: false,
+  pageOptimizerExcludedDomains: [],
+  pageOptimizerItems: {
     offscreenRendering: true,
     mediaContainment: true,
     animationLimiter: true,
     visualEffectsReducer: true,
     codeBlockContainment: true,
     imageContainment: true,
-    chatgptConversationOptimizer: true,
+    aiConversationOptimizer: true,
     reducedMotionMode: false,
     backgroundAnimationPause: true,
     offscreenMediaPause: true
   },
-  experimentalOptimizerSiteDomains: [],
+  pageOptimizerSiteDomains: [],
   domainDiscardRules: [],
   snoozeIndefinitely: false
 };

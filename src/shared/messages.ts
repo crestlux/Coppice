@@ -1,4 +1,4 @@
-import type { ExperimentalOptimizerItemId, NetworkDietMode, PolicyMode, ProtectionRuleType, Settings } from "./types";
+import type { PageOptimizerItemId, NetworkFilteringMode, PolicyMode, ProtectionRuleType, Settings } from "./types";
 import type { BackupSectionName, ImportMode } from "./dataPortability";
 
 export type RestoreTarget = "currentWindow" | "newWindow";
@@ -28,12 +28,12 @@ export type AppMessage =
   | { type: "applyFocusSet"; setId: string }
   | { type: "deleteFocusSet"; setId: string }
   | { type: "setActiveTabOptimizer"; enabled: boolean; target?: OptimizerTarget }
-  | { type: "setExperimentalOptimizerEnabled"; enabled: boolean }
+  | { type: "setPageOptimizerEnabled"; enabled: boolean }
   | { type: "setAllSitesOptimizer"; enabled: boolean }
-  | { type: "setExperimentalOptimizerItemEnabled"; itemId: ExperimentalOptimizerItemId; enabled: boolean }
+  | { type: "setPageOptimizerItemEnabled"; itemId: PageOptimizerItemId; enabled: boolean }
   | { type: "setCurrentSiteOptimizer"; enabled: boolean; target?: OptimizerTarget }
-  | { type: "resetExperimentalOptimizer" }
-  | { type: "getExperimentalOptimizerStatus" }
+  | { type: "resetPageOptimizer" }
+  | { type: "getPageOptimizerStatus" }
   | { type: "toggleCurrentTabProtection" }
   | { type: "toggleCurrentDomainProtection" }
   | { type: "protectCurrentTab" }
@@ -59,7 +59,7 @@ export type AppMessage =
   | { type: "pushSelectiveSync" }
   | { type: "pullSelectiveSync" }
   | { type: "updateSettings"; patch: Partial<Settings> }
-  | { type: "setNetworkDietMode"; mode: NetworkDietMode }
+  | { type: "setNetworkFilteringMode"; mode: NetworkFilteringMode }
   | { type: "setCurrentDomainDiscardRule"; inactiveMinutes: number }
   | { type: "removeCurrentDomainDiscardRule" }
   | { type: "setSnooze"; until?: number; indefinitely?: boolean }

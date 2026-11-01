@@ -1,3 +1,5 @@
+import { LEGACY_NAMES, migrateSettingsNames } from "./legacyNames";
+
 export type JsonPrimitive = string | number | boolean | null;
 
 export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
@@ -6,10 +8,10 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
-// Stable wire identifiers: Coppice still imports existing backups and Sync data.
-export const BACKUP_FORMAT = "chrome-resource-governor-backup" as const;
-export const SYNC_FORMAT = "chrome-resource-governor-sync" as const;
-export const CURRENT_BACKUP_SCHEMA_VERSION = 1;
+// Version 2 writes canonical names; version 1 remains an import-only format.
+export const BACKUP_FORMAT = "coppice-backup" as const;
+export const SYNC_FORMAT = "coppice-sync" as const;
+export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
 export const DEFAULT_MAX_BACKUP_BYTES = 20 * 1024 * 1024;
 
 export const BACKUP_SECTION_NAMES = [
@@ -122,12 +124,12 @@ export const DEFAULT_SYNC_QUOTA: Readonly<SyncQuota> = Object.freeze({
   headroomRatio: 0.9
 });
 
-export const SYNC_MANIFEST_KEY = "resourceGovernor.sync.manifest";
+export const SYNC_MANIFEST_KEY = "coppice.sync.manifest";
 
 export const SYNC_SECTION_KEYS: Readonly<Record<SyncSectionName, string>> = Object.freeze({
-  settings: "resourceGovernor.sync.settings",
-  protectionRules: "resourceGovernor.sync.protectionRules",
-  focusSets: "resourceGovernor.sync.focusSets"
+  settings: "coppice.sync.settings",
+  protectionRules: "coppice.sync.protectionRules",
+  focusSets: "coppice.sync.focusSets"
 });
 
 export type SyncQuotaViolationCode = "item" | "total" | "itemCount";
@@ -288,8 +290,8 @@ function syncSafeSectionValue(section: SyncSectionName, value: unknown): JsonVal
   if (cloned === null || Array.isArray(cloned) || typeof cloned !== "object") fail("INVALID_SECTION");
 
   const settings: JsonObject = {};
-  for (const [key, settingValue] of Object.entries(cloned)) {
-    if (!DEVICE_LOCAL_SYNC_SETTING_KEYS.has(key)) settings[key] = settingValue;
+  for (const [key, settingValue] of Object.entries(migrateSettingsNames(cloned))) {
+    if (!DEVICE_LOCAL_SYNC_SETTING_KEYS.has(key)) settings[key] = toJsonValue(settingValue);
   }
   return settings;
 }
@@ -312,7 +314,7 @@ function normalizeSections(
     if (!Object.hasOwn(source, section)) fail("INVALID_SECTION");
     const value = toJsonValue(source[section]);
     validateSectionShape(section, value);
-    sections[section] = value;
+    sections[section] = section === "settings" ? toJsonValue(migrateSettingsNames(value)) : value;
   }
   return sections;
 }
@@ -330,11 +332,12 @@ function assertWithinBackupLimit(envelope: BackupEnvelope, maxBytes?: number): v
 }
 
 function migrationReadyNormalize(record: JsonObject): BackupEnvelope {
-  if (record.kind !== BACKUP_FORMAT) fail("INVALID_BACKUP");
+  if (record.kind !== BACKUP_FORMAT && record.kind !== LEGACY_NAMES.backupFormat) fail("INVALID_BACKUP");
   if (!Number.isSafeInteger(record.schemaVersion)) fail("INVALID_BACKUP");
-  if (record.schemaVersion !== CURRENT_BACKUP_SCHEMA_VERSION) fail("UNSUPPORTED_SCHEMA_VERSION");
+  if (record.schemaVersion !== 1 && record.schemaVersion !== CURRENT_BACKUP_SCHEMA_VERSION) fail("UNSUPPORTED_SCHEMA_VERSION");
+  if (record.kind === LEGACY_NAMES.backupFormat && record.schemaVersion !== 1) fail("UNSUPPORTED_SCHEMA_VERSION");
 
-  // Future schema migrations should be added as versioned steps before this v1 normalization.
+  // Normalize names before merge planning so current defaults cannot mask legacy preferences.
   const createdAt = validateTimestamp(record.createdAt);
   if (!Array.isArray(record.selectedSections)) fail("INVALID_SECTION_SELECTION");
   const selectedSections = canonicalBackupSections(record.selectedSections);
@@ -608,18 +611,36 @@ export function createSelectiveSyncProjection(
 
 export function normalizeSelectiveSyncProjection(items: unknown): BackupEnvelope {
   const record = toJsonObject(items, "INVALID_BACKUP");
-  const manifest = toJsonObject(record[SYNC_MANIFEST_KEY], "INVALID_BACKUP");
-  if (manifest.kind !== SYNC_FORMAT) fail("INVALID_BACKUP");
+  // Read one complete namespace; never fill holes with stale sections from another generation.
+  const legacy = !Object.hasOwn(record, SYNC_MANIFEST_KEY);
+  const manifest = toJsonObject(record[legacy ? LEGACY_NAMES.syncManifest : SYNC_MANIFEST_KEY], "INVALID_BACKUP");
+  if (manifest.kind !== (legacy ? LEGACY_NAMES.syncFormat : SYNC_FORMAT)) fail("INVALID_BACKUP");
   if (!Number.isSafeInteger(manifest.schemaVersion)) fail("INVALID_BACKUP");
-  if (manifest.schemaVersion !== CURRENT_BACKUP_SCHEMA_VERSION) fail("UNSUPPORTED_SCHEMA_VERSION");
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== CURRENT_BACKUP_SCHEMA_VERSION) fail("UNSUPPORTED_SCHEMA_VERSION");
+  if (legacy && manifest.schemaVersion !== 1) fail("UNSUPPORTED_SCHEMA_VERSION");
   const createdAt = validateTimestamp(manifest.createdAt);
   if (!Array.isArray(manifest.selectedSections)) fail("INVALID_SECTION_SELECTION");
   const selectedSections = canonicalSyncSections(manifest.selectedSections);
   const sections: Record<string, unknown> = {};
   for (const section of selectedSections) {
-    const key = SYNC_SECTION_KEYS[section];
+    const key = legacy ? LEGACY_NAMES.syncSections[section] : SYNC_SECTION_KEYS[section];
     if (!Object.hasOwn(record, key)) fail("INVALID_SECTION");
     sections[section] = syncSafeSectionValue(section, record[key]);
   }
   return createBackupEnvelope(sections, { selectedSections, createdAt });
+}
+
+export function hasSyncProjection(items: Record<string, unknown>): boolean {
+  return Object.hasOwn(items, SYNC_MANIFEST_KEY) || Object.hasOwn(items, LEGACY_NAMES.syncManifest);
+}
+
+export function isSyncStorageKey(key: string): boolean {
+  return key.startsWith("coppice.sync.") || key.startsWith(LEGACY_NAMES.syncPrefix);
+}
+
+/** Call only after the canonical snapshot has been committed successfully. */
+export async function removeLegacySyncKeys(items: Record<string, unknown>): Promise<void> {
+  const keys = [LEGACY_NAMES.syncManifest, ...Object.values(LEGACY_NAMES.syncSections)]
+    .filter(key => Object.hasOwn(items, key));
+  if (keys.length) await chrome.storage.sync.remove(keys);
 }

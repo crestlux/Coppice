@@ -1,3 +1,4 @@
+import { isSyncStorageKey } from "../shared/dataPortability";
 import {
   exactUrlPattern,
   getHostname,
@@ -85,16 +86,16 @@ import {
   measureOpenTabsAccurately
 } from "./accurateMode";
 import {
-  getExperimentalOptimizerStatus,
-  reconcileExperimentalOptimizerSettings,
-  removeAllExperimentalOptimizerCss,
-  resetExperimentalOptimizer,
+  getPageOptimizerStatus,
+  reconcilePageOptimizerSettings,
+  removeAllPageOptimizerCss,
+  resetPageOptimizer,
   setActiveTabOptimizer,
   setAllSitesOptimizer,
   setCurrentSiteOptimizer,
-  setExperimentalOptimizerEnabled,
-  setExperimentalOptimizerItemEnabled,
-  syncExperimentalOptimizerForTab
+  setPageOptimizerEnabled,
+  setPageOptimizerItemEnabled,
+  syncPageOptimizerForTab
 } from "./optimizer";
 import {
   importSessions,
@@ -166,18 +167,18 @@ async function loadRuntimeAppState() {
 }
 
 async function getPopupState() {
-  const [evaluation, accurateMode, currentTabProtection, experimentalOptimizerStatus] = await Promise.all([
+  const [evaluation, accurateMode, currentTabProtection, pageOptimizerStatus] = await Promise.all([
     collectScanEvaluation("manual"),
     getAccurateModeStatus(),
     getCurrentTabProtectionStatus(),
-    getExperimentalOptimizerStatus()
+    getPageOptimizerStatus()
   ]);
 
   return {
     ...evaluation,
     accurateMode,
     currentTabProtection,
-    experimentalOptimizerStatus
+    pageOptimizerStatus
   };
 }
 
@@ -1058,20 +1059,20 @@ export async function handleMessage(message: AppMessage): Promise<unknown> {
       return applyFocusSet(message.setId);
     case "deleteFocusSet":
       return removeFocusSet(message.setId);
-    case "getExperimentalOptimizerStatus":
-      return getExperimentalOptimizerStatus();
+    case "getPageOptimizerStatus":
+      return getPageOptimizerStatus();
     case "setActiveTabOptimizer":
       return setActiveTabOptimizer(message.enabled, message.target);
     case "setAllSitesOptimizer":
       return setAllSitesOptimizer(message.enabled);
-    case "setExperimentalOptimizerEnabled":
-      return setExperimentalOptimizerEnabled(message.enabled);
-    case "setExperimentalOptimizerItemEnabled":
-      return setExperimentalOptimizerItemEnabled(message.itemId, message.enabled);
+    case "setPageOptimizerEnabled":
+      return setPageOptimizerEnabled(message.enabled);
+    case "setPageOptimizerItemEnabled":
+      return setPageOptimizerItemEnabled(message.itemId, message.enabled);
     case "setCurrentSiteOptimizer":
       return setCurrentSiteOptimizer(message.enabled, message.target);
-    case "resetExperimentalOptimizer":
-      return resetExperimentalOptimizer();
+    case "resetPageOptimizer":
+      return resetPageOptimizer();
     case "toggleCurrentTabProtection":
       return toggleCurrentTabProtection();
     case "toggleCurrentDomainProtection":
@@ -1137,17 +1138,17 @@ export async function handleMessage(message: AppMessage): Promise<unknown> {
       if (message.patch.privacyMode === true) {
         await redactDiscardLogMetadata();
       }
-      if (message.patch.experimentalOptimizerEnabled === false) {
-        await removeAllExperimentalOptimizerCss();
+      if (message.patch.pageOptimizerEnabled === false) {
+        await removeAllPageOptimizerCss();
       }
       await ensureScanAlarm(settings);
-      await syncDnrRules(settings.networkDietMode);
+      await syncDnrRules(settings.networkFilteringMode);
       if (settings.syncEnabled) scheduleAutomaticSync();
       return settings;
     }
-    case "setNetworkDietMode": {
-      const settings = await updateSettings({ networkDietMode: message.mode });
-      await syncDnrRules(settings.networkDietMode);
+    case "setNetworkFilteringMode": {
+      const settings = await updateSettings({ networkFilteringMode: message.mode });
+      await syncDnrRules(settings.networkFilteringMode);
       return settings;
     }
     case "setCurrentDomainDiscardRule":
@@ -1194,11 +1195,11 @@ function optimizerSettingsFingerprint(value: unknown): string {
   if (!value || typeof value !== "object") return "";
   const settings = value as Partial<Settings>;
   return JSON.stringify([
-    settings.experimentalOptimizerEnabled,
-    settings.experimentalOptimizerItems,
-    settings.experimentalOptimizerSiteDomains,
-    settings.experimentalOptimizerAllSites,
-    settings.experimentalOptimizerExcludedDomains
+    settings.pageOptimizerEnabled,
+    settings.pageOptimizerItems,
+    settings.pageOptimizerSiteDomains,
+    settings.pageOptimizerAllSites,
+    settings.pageOptimizerExcludedDomains
   ]);
 }
 
@@ -1212,7 +1213,7 @@ export function registerEventHandlers(): void {
   const reconcileOptimizerAccess = (permissions: chrome.permissions.Permissions) => {
     if (permissions.origins?.length) {
       runEventTask("permissions(work protection)", reconcileWorkProtection);
-      runEventTask("permissions(optimizer)", () => reconcileExperimentalOptimizerSettings(undefined, { force: true }));
+      runEventTask("permissions(optimizer)", () => reconcilePageOptimizerSettings(undefined, { force: true }));
     }
   };
   chrome.permissions?.onAdded?.addListener(reconcileOptimizerAccess);
@@ -1247,7 +1248,7 @@ export function registerEventHandlers(): void {
   chrome.tabs.onActivated.addListener(activeInfo => {
     runEventTask("tabs.onActivated", async () => {
       const tab = await chrome.tabs.get(activeInfo.tabId).catch(() => undefined);
-      if (tab) await syncExperimentalOptimizerForTab(tab);
+      if (tab) await syncPageOptimizerForTab(tab);
       await learnFromTabActivation(activeInfo.tabId);
       await captureTimelineSnapshot("browserEvent");
       await refreshOrRunFocusCleanup();
@@ -1271,7 +1272,7 @@ export function registerEventHandlers(): void {
       }
       if (typeof tab.id === "number") recentlyCreatedTabs.set(tab.id, now);
       if (await runSerializedAutoMerge(tab)) return;
-      await syncExperimentalOptimizerForTab(tab);
+      await syncPageOptimizerForTab(tab);
       await captureTimelineSnapshot("browserEvent");
       await refreshOrRunFocusCleanup();
     });
@@ -1284,7 +1285,7 @@ export function registerEventHandlers(): void {
     const optimizerDocumentComplete = changeInfo.status === "complete";
     if (optimizerDocumentComplete || changeInfo.status === "loading" || "url" in changeInfo ||
         "discarded" in changeInfo || "frozen" in changeInfo) {
-      runEventTask("tabs.onUpdated(optimizer)", () => syncExperimentalOptimizerForTab(tab, {
+      runEventTask("tabs.onUpdated(optimizer)", () => syncPageOptimizerForTab(tab, {
         force: optimizerDocumentComplete || changeInfo.frozen === false,
         navigation: changeInfo.status === "loading" || "url" in changeInfo
       }));
@@ -1379,13 +1380,13 @@ export function registerEventHandlers(): void {
           optimizerSettingsFingerprint(changes.settings.oldValue) !==
           optimizerSettingsFingerprint(changes.settings.newValue)
         ) {
-          await reconcileExperimentalOptimizerSettings(
+          await reconcilePageOptimizerSettings(
             changes.settings.oldValue as Partial<Settings> | undefined,
             { dedupe: true }
           );
         }
         await ensureScanAlarm(state.settings);
-        await syncDnrRules(state.settings.networkDietMode);
+        await syncDnrRules(state.settings.networkFilteringMode);
         await refreshStatusCoalesced();
       });
     }
@@ -1397,7 +1398,7 @@ export function registerEventHandlers(): void {
     }
     if (
       areaName === "sync" &&
-      Object.keys(changes).some(key => key.startsWith("resourceGovernor.sync."))
+      Object.keys(changes).some(isSyncStorageKey)
     ) {
       scheduleRemoteSyncPull();
     }
