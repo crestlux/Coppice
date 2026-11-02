@@ -70,7 +70,7 @@
           </article>
           <article class="insight-card accent-amber">
             <span class="insight-label">Likely cause</span>
-            <strong id="rootCauseSummary">Insufficient evidence</strong>
+            <strong id="rootCauseSummary">Cause unclear</strong>
             <p id="rootCauseDetail"></p>
           </article>
           <article class="insight-card accent-purple">
@@ -164,7 +164,7 @@
             <h2 id="automationHeading">Power and behavior</h2>
           </div>
         </div>
-        <details class="disclosure"><summary>Current decision</summary><div class="disclosure-body"><div id="automationPlan" aria-live="polite"></div></div></details>
+        <details class="disclosure"><summary>Cleanup status</summary><div class="disclosure-body"><div id="automationPlan" aria-live="polite"></div></div></details>
         <div class="grid two setting-grid">
           <label>
             Power policy
@@ -199,13 +199,14 @@
           </label>
         </div>
         <div class="checks feature-checks">
-          <label><input id="autoMergeDuplicateTabs" type="checkbox" /> Switch to an open tab instead of opening a duplicate</label>
+          <label><input id="autoMergeDuplicateTabs" type="checkbox" aria-describedby="autoMergeHelp autoMergeAccessStatus" /> Merge newly opened duplicate tabs</label>
           <label><input id="discardLearningEnabled" type="checkbox" /> Learn from tabs I reopen or undo</label>
           <label><input id="timeMachineEnabled" type="checkbox" /> Take Time Machine snapshots</label>
         </div>
-        <div class="callout info-callout">
-          <strong>Duplicates</strong>
-          <span>Opening a page that is already open switches to that tab and closes the new one.</span>
+        <p id="autoMergeHelp" class="field-help">Matches the full address after loading. Tabs with unsaved work stay open.</p>
+        <div id="autoMergeAccess" class="button-row" hidden>
+          <button id="grantAutoMergeAccessButton" type="button" aria-describedby="autoMergeAccessStatus" hidden>Allow checks on all sites</button>
+          <span id="autoMergeAccessStatus" class="field-help" role="status"></span>
         </div>
         <button id="saveAutomationButton" class="primary-button" type="button">Save power and behavior</button>
       </section>

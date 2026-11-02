@@ -93,7 +93,7 @@ body { min-height: 0; }
 .resource-detail-card > span, .resource-detail-card small, .release-summary-card small { font-size: .8125rem; line-height: 1.5; }
 .resource-detail-card > strong { font-size: 1.125rem; }
 .quick-settings label, .candidate-title, .tab-title, .optimizer-item strong { font-size: .875rem; }
-.candidate-context, .tab-meta, .tab-url, .optimizer-item small, .optimizer-item .optimizer-item-evidence { font-size: .8125rem; line-height: 1.5; }
+.candidate-context, .tab-meta, .tab-url, .optimizer-item small, .optimizer-item .optimizer-item-metrics { font-size: .8125rem; line-height: 1.5; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .button-row button { flex: 1 1 120px; }
 .accurate-details { gap: 6px; }

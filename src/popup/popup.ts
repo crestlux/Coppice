@@ -254,6 +254,7 @@ let visibleCommandItems: CommandItem[] = [];
 let activeCommandIndex = -1;
 let tabAccurateMetrics = new Map<number, TabAccurateMetrics>();
 let refreshInFlight = false;
+let websiteChecksAllowed = true;
 let tabMutationInFlight = false;
 const TAB_MUTATION_CONTROLS = "#releaseButton, #discardAllBackgroundButton, #discardCurrentDomainButton, #discardOlderButton, #saveWindowButton, #closeDiscardedButton, #closeAllDiscardedButton, #closeAllFrozenButton, #confirmCloseDuplicatesButton, #undoDiscardButton, [data-close-tab-id], [data-discard-tab-id]";
 
@@ -450,11 +451,18 @@ async function closeDiscardedTabs(): Promise<CloseDiscardedTabsResult> {
   return normalizeCloseDiscardedResult(result);
 }
 
+// Without website access, loaded tabs can't be checked for unsaved work, so close actions keep them
+// open. Say how to change that instead of leaving "kept open" unexplained.
+function keptOpenHint(protectedCount: number): string {
+  return protectedCount > 0 && currentState?.settings.protectUnsavedWork && !websiteChecksAllowed
+    ? " Turn on Allow website checks in Settings to close tabs Coppice can’t check." : "";
+}
+
 function closeTabsResultMessage(kind: string, result: CloseDiscardedTabsResult): string {
   const skipped = result.skippedActiveCount + result.skippedPinnedCount + result.skippedIncognitoCount +
     (result.skippedProtectedCount ?? 0) + (result.skippedChangedCount ?? 0);
   return skipped > 0
-    ? `Closed ${pluralize(result.closedCount, `${kind} tab`)}; kept ${pluralize(skipped, "tab")} open for protection or changed state.`
+    ? `Closed ${pluralize(result.closedCount, `${kind} tab`)}; kept ${pluralize(skipped, "tab")} open for protection or changed state.${keptOpenHint(result.skippedProtectedCount ?? 0)}`
     : `Closed ${pluralize(result.closedCount, `${kind} tab`)}.`;
 }
 
@@ -619,14 +627,13 @@ function renderResourceIntelligence(state: AppState, pressure: PressureSnapshot)
 
   const rootCause = state.rootCauseAssessment;
   if (!rootCause) {
-    elements.rootCauseIntelligenceValue.textContent = "Insufficient data";
-    elements.rootCauseIntelligenceDetail.textContent = "Confidence unavailable";
+    elements.rootCauseIntelligenceValue.textContent = "Cause unclear";
+    elements.rootCauseIntelligenceDetail.textContent = "";
     intelligenceState(elements.rootCauseIntelligence, "muted");
   } else {
-    const presentation = presentPressureRootCause(rootCause.likelyCause, rootCause.confidence);
+    const presentation = presentPressureRootCause(rootCause.likelyCause);
     elements.rootCauseIntelligenceValue.textContent = presentation.headline;
-    elements.rootCauseIntelligenceDetail.textContent = rootCause.summary;
-    elements.rootCauseIntelligenceDetail.title = rootCause.summary;
+    elements.rootCauseIntelligenceDetail.textContent = "";
     intelligenceState(elements.rootCauseIntelligence, presentation.visualState);
   }
 
@@ -1178,10 +1185,10 @@ function renderPageOptimizerStatus(status: PageOptimizerStatus | undefined): voi
       ? "Checking page content…"
       : optimizerItemMetricText(item, normalized.activeTabOptimized, normalized.aiConversationMetrics) + (checking ? " · Updating…" : "");
     if (metric) {
-      const evidence = document.createElement("small");
-      evidence.className = "optimizer-item-evidence";
-      evidence.textContent = metric;
-      main.append(evidence);
+      const metrics = document.createElement("small");
+      metrics.className = "optimizer-item-metrics";
+      metrics.textContent = metric;
+      main.append(metrics);
     }
     label.append(checkbox, main);
     elements.optimizerItemList.append(label);
@@ -2266,6 +2273,7 @@ async function refresh(options: { silent?: boolean } = {}): Promise<void> {
   const optimizerRevision = optimizerMutationRevision;
   try {
     render(await sendAppMessage<PopupState>({ type: "getPopupState" }), optimizerRevision);
+    websiteChecksAllowed = await chrome.permissions.contains({ origins: ["http://*/*", "https://*/*"] }).catch(() => true);
     await refreshCommandSources();
     if (!options.silent) {
       setMessage("");
@@ -2627,7 +2635,7 @@ elements.confirmCloseDuplicatesButton.addEventListener("click", () => {
           result.duplicateGroupCount
         } group${result.duplicateGroupCount === 1 ? "" : "s"}.${
           (result.skippedProtectedCount ?? 0) + (result.skippedChangedCount ?? 0) > 0
-            ? ` Kept ${pluralize((result.skippedProtectedCount ?? 0) + (result.skippedChangedCount ?? 0), "tab")} open for protection or changed state.` : ""
+            ? ` Kept ${pluralize((result.skippedProtectedCount ?? 0) + (result.skippedChangedCount ?? 0), "tab")} open for protection or changed state.${keptOpenHint(result.skippedProtectedCount ?? 0)}` : ""
         }`
       );
     } catch (error) {
@@ -3085,7 +3093,7 @@ elements.saveWindowButton.addEventListener("click", () => {
       type: "saveWindowAndClose",
       includeActive: false,
       includePinned: false
-    }), result => `Saved ${pluralize(result.tabs.length, "tab")}; closed ${result.closedCount}, kept ${result.keptOpenCount} open.`, true
+    }), result => `Saved ${pluralize(result.tabs.length, "tab")}; closed ${result.closedCount}, kept ${result.keptOpenCount} open.${keptOpenHint(result.keptOpenCount)}`, true
   );
 });
 

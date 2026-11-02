@@ -117,7 +117,7 @@ export function buildAutomationPlan(input: {
     plan.mode = "cpuRelief";
     plan.reasons.push("Only tabs with fresh renderer task measurements receive an earlier CPU threshold; other tabs keep their normal inactivity rule.");
   }
-  if (plan.maxDiscards === 0) return hold("observe", "Collecting evidence before another automatic action.");
+  if (plan.maxDiscards === 0) return hold("observe", "Waiting before the next cleanup.");
   const usedByWindow = new Map<number, number>();
   for (const candidate of eligible) {
     if (plan.selectedTabIds.length >= plan.maxDiscards) break;

@@ -319,6 +319,7 @@ declare namespace chrome {
   namespace windows {
     interface Window {
       id?: number;
+      focused?: boolean;
       tabs?: tabs.Tab[];
     }
 

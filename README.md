@@ -82,7 +82,7 @@ Need a quiet hour? **Snooze** pauses automatic cleanup for the time you pick. Ma
 | **Page optimizer** | Its current mode, with one-click access to turn it on. |
 | **More tools** | Unloaded and frozen tabs, cleanup and network modes, **Find duplicate tabs**, **Close unloaded tabs**, **Protect this tab** or **Protect this site**, and **Save window and close**. |
 
-**Find duplicate tabs** shows each set of duplicates and which copy it keeps before closing the rest. Coppice can also switch you to a page that is already open instead of opening it twice.
+**Find duplicate tabs** shows each set of duplicates and which copy it keeps before closing the rest. Enable **Merge newly opened duplicate tabs** under **Power and behavior** to reuse an open page when a new tab finishes loading the same full address. With **Protect unsaved work** enabled, allow website checks first; pages Coppice cannot check stay open. Existing working tabs, pinned tabs, and tabs restored from a saved session are kept.
 
 <p align="center">
   <img src="media/popup-tabs.png" width="820" alt="The Tabs list in light and dark themes: each row shows the tab title, its site and when it was last used, a Keep loaded switch, and an Unload button or an Unloaded label" />

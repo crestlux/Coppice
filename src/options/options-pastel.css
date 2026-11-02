@@ -1,5 +1,7 @@
 /* Settings layout on the shared pastel tokens (../shared/pastel-tokens.css).
    Same rules as the popup: periwinkle for the main action, ink for text, no decorative bars. */
+/* As in the popup: rules like .button-row { display: flex } would otherwise show elements marked hidden. */
+[hidden] { display: none !important; }
 .brand-icon { width: 48px; height: 48px; margin: -4px; filter: none; }
 .page-header h1 { font-weight: 650; letter-spacing: -.01em; }
 

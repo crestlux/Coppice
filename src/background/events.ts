@@ -53,7 +53,6 @@ import {
   saveFocusModeEnabled,
   updateInternalDiscardIntents,
   replaceDiscardLogTabId,
-  saveLastAutoMerge,
   pruneWindowPolicies,
   setTemporaryTabProtection,
   setWindowPolicy,
@@ -73,8 +72,6 @@ import {
   discardCurrentDomainBackgroundTabs,
   discardTabsOlderThan,
   previewDuplicateTabsForCurrentBrowser,
-  exactDuplicateTabKey,
-  selectExistingDuplicateTab,
   refreshStatus,
   runFocusCleanup,
   simulatePolicy
@@ -108,7 +105,6 @@ import {
 } from "./sessions";
 import { classifyDiscardEvent, computeDiscardLearningAdjustment } from "./resourceIntelligence";
 import {
-  captureRecoveryCapsule,
   captureTimelineSnapshot,
   restoreRecoveryCapsule,
   restoreTimelineSnapshot
@@ -125,7 +121,7 @@ import {
   scheduleRemoteSyncPull
 } from "./portability";
 import { isAutoMergeSuppressed, withAutoMergeSuppressed } from "./autoMergeGuard";
-import { checkTabCloseSafety } from "./sessionSafety";
+import { autoMergeCreatedTab, autoMergeUpdatedTab, clearAutoMergeTracking, forgetAutoMergeTab, replaceAutoMergeTab } from "./autoMerge";
 
 async function getWindowSummaries() {
   const state = await loadAppState();
@@ -945,10 +941,8 @@ function followReplacedTab(addedTabId: number, removedTabId: number): Promise<vo
   return operation;
 }
 
-const RECENTLY_CREATED_TAB_TTL_MS = 30_000;
-const recentlyCreatedTabs = new Map<number, number>();
+const CONTROLLED_RESTORE_TTL_MS = 30_000;
 const controlledRestoreTabs = new Map<number, number>();
-let autoMergeQueue: Promise<void> = Promise.resolve();
 
 export function markControlledRestoreTab(tabId: number, now = Date.now()): void {
   controlledRestoreTabs.set(tabId, now);
@@ -957,60 +951,11 @@ export function markControlledRestoreTab(tabId: number, now = Date.now()): void 
 export function isControlledRestoreTab(tabId: number, now = Date.now()): boolean {
   const createdAt = controlledRestoreTabs.get(tabId);
   if (createdAt == null) return false;
-  if (now - createdAt > RECENTLY_CREATED_TAB_TTL_MS) {
+  if (now - createdAt > CONTROLLED_RESTORE_TTL_MS) {
     controlledRestoreTabs.delete(tabId);
     return false;
   }
   return true;
-}
-
-async function tryAutoMergeDuplicate(tab: chrome.tabs.Tab): Promise<boolean> {
-  const state = await loadAppState();
-  if (!state.settings.autoMergeDuplicateTabs || typeof tab.id !== "number" || tab.pinned || tab.incognito ||
-      tab.status === "loading" || tab.pendingUrl) {
-    return false;
-  }
-  const createdAt = recentlyCreatedTabs.get(tab.id);
-  if (createdAt == null || Date.now() - createdAt > RECENTLY_CREATED_TAB_TTL_MS) {
-    recentlyCreatedTabs.delete(tab.id);
-    return false;
-  }
-  const normalizedUrl = exactDuplicateTabKey(tab);
-  if (!normalizedUrl) return false;
-
-  const existing = selectExistingDuplicateTab(tab, await chrome.tabs.query({}));
-  if (typeof existing?.id !== "number") return false;
-
-  await captureRecoveryCapsule("closeDuplicates", [tab]);
-  const safe = await checkTabCloseSafety(tab, {
-    includeActive: true,
-    stillEligible: async () => {
-      const keeper = await chrome.tabs.get(existing.id as number).catch(() => undefined);
-      return Boolean(keeper && !keeper.pendingUrl && keeper.status !== "loading" && exactDuplicateTabKey(keeper) === normalizedUrl);
-    }
-  });
-  if (!safe.tab) return false;
-  await chrome.tabs.remove(tab.id);
-  // A link opened in the background must stay a background operation.
-  if (safe.tab.active) {
-    await chrome.tabs.update(existing.id, { active: true }).catch(() => undefined);
-    await chrome.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
-  }
-  recentlyCreatedTabs.delete(tab.id);
-  await saveLastAutoMerge({
-    mergedAt: Date.now(),
-    closedTabId: tab.id,
-    existingTabId: existing.id,
-    normalizedUrl,
-    title: tab.title
-  });
-  return true;
-}
-
-function runSerializedAutoMerge(tab: chrome.tabs.Tab): Promise<boolean> {
-  const operation = autoMergeQueue.then(() => tryAutoMergeDuplicate(tab));
-  autoMergeQueue = operation.then(() => undefined, () => undefined);
-  return operation;
 }
 
 export async function handleMessage(message: AppMessage): Promise<unknown> {
@@ -1259,19 +1204,20 @@ export function registerEventHandlers(): void {
     const controlledRestore = isAutoMergeSuppressed(tab.id);
     runEventTask("tabs.onCreated", async () => {
       const now = Date.now();
-      for (const [tabId, createdAt] of recentlyCreatedTabs) {
-        if (now - createdAt > RECENTLY_CREATED_TAB_TTL_MS) recentlyCreatedTabs.delete(tabId);
-      }
       for (const [tabId, createdAt] of controlledRestoreTabs) {
-        if (now - createdAt > RECENTLY_CREATED_TAB_TTL_MS) controlledRestoreTabs.delete(tabId);
+        if (now - createdAt > CONTROLLED_RESTORE_TTL_MS) controlledRestoreTabs.delete(tabId);
       }
       if (controlledRestore) {
         if (typeof tab.id === "number") markControlledRestoreTab(tab.id, now);
         await refreshStatusCoalesced();
         return;
       }
-      if (typeof tab.id === "number") recentlyCreatedTabs.set(tab.id, now);
-      if (await runSerializedAutoMerge(tab)) return;
+      // A failed merge must not skip the rest of the new tab's setup.
+      const merged = await autoMergeCreatedTab(tab).catch(error => {
+        console.warn("Automatic duplicate merge failed", error);
+        return false;
+      });
+      if (merged) return;
       await syncPageOptimizerForTab(tab);
       await captureTimelineSnapshot("browserEvent");
       await refreshOrRunFocusCleanup();
@@ -1291,8 +1237,9 @@ export function registerEventHandlers(): void {
       }));
     }
     const controlledRestore = isControlledRestoreTab(tabId);
-    if (optimizerDocumentComplete && !controlledRestore && recentlyCreatedTabs.has(tabId)) {
-      runEventTask("tabs.onUpdated(autoMerge)", () => runSerializedAutoMerge(tab));
+    // Restored tabs are never tracked as new, but duplicates waiting on one still need its updates.
+    if (optimizerDocumentComplete || "url" in changeInfo) {
+      runEventTask("tabs.onUpdated(autoMerge)", () => autoMergeUpdatedTab(tab));
     }
     const topologyStateChanged =
       "url" in changeInfo || "pinned" in changeInfo || "groupId" in changeInfo;
@@ -1314,7 +1261,6 @@ export function registerEventHandlers(): void {
           await observeDiscardTransition(tabId, true, tab);
         }
         if ("url" in changeInfo) {
-          if (!controlledRestore && await runSerializedAutoMerge(tab)) return;
           await rememberRuleProtectionForTab(tab);
         }
         if (topologyStateChanged) {
@@ -1348,13 +1294,15 @@ export function registerEventHandlers(): void {
   });
 
   chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+    runEventTask("tabs.onReplaced(autoMerge)", () => replaceAutoMergeTab(removedTabId, addedTabId));
     // Queued synchronously so it runs before the new tab's discard update is classified.
     void followReplacedTab(addedTabId, removedTabId).catch(error => console.warn("tabs.onReplaced failed", error));
   });
 
   chrome.tabs.onRemoved.addListener(tabId => {
+    // Separate task: cleanup must not wait behind a merge that is checking a tab for unsaved work.
+    runEventTask("tabs.onRemoved(autoMerge)", () => forgetAutoMergeTab(tabId));
     runEventTask("tabs.onRemoved", async () => {
-      recentlyCreatedTabs.delete(tabId);
       controlledRestoreTabs.delete(tabId);
       await removeTemporaryTabProtection(tabId);
       await removeOptimizedTab(tabId);
@@ -1376,6 +1324,7 @@ export function registerEventHandlers(): void {
         const oldSettings = changes.settings.oldValue as Partial<Settings> | undefined;
         const newSettings = changes.settings.newValue as Partial<Settings> | undefined;
         if (oldSettings?.protectUnsavedWork !== newSettings?.protectUnsavedWork) await reconcileWorkProtection();
+        if (oldSettings?.autoMergeDuplicateTabs && !newSettings?.autoMergeDuplicateTabs) await clearAutoMergeTracking();
         if (
           optimizerSettingsFingerprint(changes.settings.oldValue) !==
           optimizerSettingsFingerprint(changes.settings.newValue)

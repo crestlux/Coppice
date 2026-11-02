@@ -26,6 +26,7 @@ import { formatDateTime, formatMinutes, formatPercent as formatRatio } from "../
 import { headroomLabel, paintHeadroom, presentHeadroom } from "../shared/headroomPresentation";
 import { isSnoozed } from "../shared/snooze";
 import { discardReasonLabel } from "../shared/labels";
+import { presentPressureRootCause } from "../popup/resourceIntelligencePresentation";
 import {
   POLICY_MODE_THRESHOLD_PRESETS,
   getThresholdForPolicyMode,
@@ -89,6 +90,9 @@ const elements = {
   powerPolicyMode: getSelect("powerPolicyMode"),
   lowBatteryThreshold: getInput("lowBatteryThreshold"),
   autoMergeDuplicateTabs: getInput("autoMergeDuplicateTabs"),
+  autoMergeAccess: getElement("autoMergeAccess"),
+  grantAutoMergeAccessButton: getButton("grantAutoMergeAccessButton"),
+  autoMergeAccessStatus: getElement("autoMergeAccessStatus"),
   discardLearningEnabled: getInput("discardLearningEnabled"),
   quickReactivateMinutes: getInput("quickReactivateMinutes"),
   timeMachineEnabled: getInput("timeMachineEnabled"),
@@ -340,18 +344,40 @@ function renderPolicy(settings: Settings): void {
 
 const WORK_PROTECTION_ORIGINS = ["http://*/*", "https://*/*"];
 let workAccessRequest = 0;
+let hasWebsiteAccess = false;
+let hasSomeWebsiteAccess = false;
+
+function renderAutoMergeAccess(): void {
+  const needsAccess = elements.autoMergeDuplicateTabs.checked &&
+    (currentState?.settings.protectUnsavedWork ?? true) && !hasWebsiteAccess;
+  elements.autoMergeAccess.hidden = !needsAccess;
+  elements.grantAutoMergeAccessButton.hidden = !needsAccess;
+  elements.autoMergeAccessStatus.textContent = needsAccess
+    ? hasSomeWebsiteAccess
+      ? "Automatic merging is limited to sites with website access."
+      : "Website access is needed to check for unsaved work before merging."
+    : "";
+}
 
 async function refreshWorkProtectionAccess(): Promise<void> {
   const request = ++workAccessRequest;
   try {
-    const granted = await chrome.permissions.contains({ origins: WORK_PROTECTION_ORIGINS });
+    const [granted, permissions] = await Promise.all([
+      chrome.permissions.contains({ origins: WORK_PROTECTION_ORIGINS }), chrome.permissions.getAll()
+    ]);
     if (request !== workAccessRequest) return;
+    hasWebsiteAccess = granted;
+    hasSomeWebsiteAccess = Boolean(permissions.origins?.some(origin => /^(https?|\*):\/\//.test(origin) || origin === "<all_urls>"));
+    renderAutoMergeAccess();
     elements.grantWorkProtectionAccessButton.hidden = granted;
     elements.workProtectionAccessStatus.textContent = granted
       ? "Website access allowed."
       : "No website access. Unchecked tabs unload only when you ask or memory runs low.";
   } catch {
     if (request !== workAccessRequest) return;
+    hasWebsiteAccess = false;
+    hasSomeWebsiteAccess = false;
+    renderAutoMergeAccess();
     elements.grantWorkProtectionAccessButton.hidden = false;
     elements.workProtectionAccessStatus.textContent = "Couldn’t read website access. Unchecked tabs unload only when you ask or memory runs low.";
   }
@@ -472,19 +498,12 @@ function renderIntelligence(state: AppState): void {
 
   const rootCause = state.rootCauseAssessment;
   if (!rootCause) {
-    elements.rootCauseSummary.textContent = "Not enough data yet";
+    elements.rootCauseSummary.textContent = "Cause unclear";
     elements.rootCauseDetail.textContent = "";
   } else {
-    const causeLabel: Record<typeof rootCause.likelyCause, string> = {
-      none: "No memory pressure",
-      chromeTabs: "Mostly Chrome tabs",
-      mixed: "Chrome tabs and other apps",
-      otherApplications: "Mostly other apps",
-      insufficientData: "Not enough data yet",
-      unknown: "Unclear"
-    };
-    elements.rootCauseSummary.textContent = causeLabel[rootCause.likelyCause];
-    elements.rootCauseDetail.textContent = `${rootCause.summary}`;
+    // Same words as the popup's card for the same cause.
+    elements.rootCauseSummary.textContent = presentPressureRootCause(rootCause.likelyCause).headline;
+    elements.rootCauseDetail.textContent = "";
   }
 
   const observations = state.externalDiscardObservations ?? [];
@@ -970,6 +989,7 @@ function render(state: AppState): void {
   if (!dirtySettingsGroups.has("advancedHeading")) renderAdvanced(state.settings);
   if (!dirtySettingsGroups.has("automationHeading")) renderAutomation(state);
   if (!dirtySettingsGroups.has("syncHeading")) renderSyncSettings(state.settings);
+  renderAutoMergeAccess();
   elements.networkFilteringMode.value = state.settings.networkFilteringMode;
   renderIntelligence(state);
   renderWindowPolicies(state);
@@ -1228,6 +1248,21 @@ elements.grantWorkProtectionAccessButton.addEventListener("click", () => {
 chrome.permissions.onAdded?.addListener(() => void refreshWorkProtectionAccess());
 chrome.permissions.onRemoved?.addListener(() => void refreshWorkProtectionAccess());
 
+elements.grantAutoMergeAccessButton.addEventListener("click", () => {
+  void runResultAction(
+    "Allow website checks", elements.grantAutoMergeAccessButton, () =>
+      chrome.permissions.request({ origins: WORK_PROTECTION_ORIGINS }), async granted => {
+      await refreshWorkProtectionAccess();
+      if (!granted) throw new Error("Website access wasn’t granted. Tabs that cannot be checked will stay open.");
+      return currentState?.settings.autoMergeDuplicateTabs
+        ? "Website checks allowed. Newly opened duplicates can now merge."
+        : "Website checks allowed. Save power and behavior to start merging duplicates.";
+    }
+  );
+});
+
+elements.autoMergeDuplicateTabs.addEventListener("change", renderAutoMergeAccess);
+
 elements.policyMode.addEventListener("change", () => {
   if (currentState?.focusModeEnabled) {
     elements.policyMode.value = currentState.settings.policyMode;
@@ -1257,9 +1292,32 @@ elements.savePolicyButton.addEventListener("click", () => {
 });
 
 elements.saveAutomationButton.addEventListener("click", () => {
-  void runAction("Save power and behavior", () =>
-    sendAppMessage({ type: "updateSettings", patch: collectAutomationPatch() }), "automationHeading"
-  );
+  void (async () => {
+    let accessDeclined = false;
+    let saved = false;
+    await runAction("Save power and behavior", () => {
+      const patch = collectAutomationPatch();
+      // request() runs before any await, inside the original click.
+      const access = patch.autoMergeDuplicateTabs && !currentState?.settings.autoMergeDuplicateTabs &&
+        (currentState?.settings.protectUnsavedWork ?? true) && !hasWebsiteAccess && !hasSomeWebsiteAccess
+        ? chrome.permissions.request({ origins: WORK_PROTECTION_ORIGINS }) : Promise.resolve(true);
+      // A request Chrome rejects (another prompt open, no gesture) counts as declined, not as a failed save.
+      return access.catch(() => false).then(async granted => {
+        await refreshWorkProtectionAccess();
+        // Declining access keeps merging off, but must not discard the other changes in this group.
+        accessDeclined = !granted;
+        await sendAppMessage({ type: "updateSettings", patch: accessDeclined ? { ...patch, autoMergeDuplicateTabs: false } : patch });
+        saved = true;
+      });
+    }, "automationHeading");
+    if (accessDeclined && saved) {
+      // Keep the choice on screen, unsaved, so the next Save asks for access again.
+      elements.autoMergeDuplicateTabs.checked = true;
+      dirtySettingsGroups.add("automationHeading");
+      renderAutoMergeAccess();
+      setStatus("Other changes saved. Merging stays off because website access wasn’t granted.");
+    }
+  })();
 });
 
 elements.powerPolicyMode.addEventListener("change", updateAutomationControlAvailability);
@@ -1404,7 +1462,10 @@ elements.rulesList.addEventListener("click", event => {
 
 async function showSavedSessionResult(result: SaveAndCloseResult): Promise<string> {
   const refreshed = await refresh();
-  const summary = `Saved ${result.tabs.length} tabs; closed ${result.closedCount}, kept ${result.keptOpenCount} open.`;
+  // Without website access, loaded tabs can't be checked for unsaved work and stay open.
+  const hint = result.keptOpenCount > 0 && currentState?.settings.protectUnsavedWork && !hasWebsiteAccess
+    ? " Turn on Allow website checks to close tabs Coppice can’t check." : "";
+  const summary = `Saved ${result.tabs.length} tabs; closed ${result.closedCount}, kept ${result.keptOpenCount} open.${hint}`;
   if (!refreshed) throw new Error(`${summary} The latest state could not be loaded. Use Refresh.`);
   return summary;
 }

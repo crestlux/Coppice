@@ -13,7 +13,9 @@ import {
   saveLastMemoryRelease,
   saveLastDiscardSummary,
   saveRootCauseAssessment,
-  updateTemporaryTabProtections
+  updateTemporaryTabProtections,
+  deleteRecoveryCapsule,
+  getSettings
 } from "../shared/storage";
 import type {
   AppState,
@@ -709,11 +711,18 @@ export async function closeTab(tabId: number): Promise<CloseTabResult> {
   if (!Number.isInteger(tabId) || tabId < 0) throw new Error("Invalid tab ID.");
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) throw new Error("The tab no longer exists.");
-  await captureRecoveryCapsule("manualDiscard", [tab]);
+  const capsule = await captureRecoveryCapsule("manualDiscard", [tab]);
   const safe = await checkTabCloseSafety(tab, { includeActive: true, includePinned: true });
-  if (!safe.tab) throw new Error(safe.reason === "protected"
-    ? "This tab is protected and has been kept open. Check Keep loaded, unsaved work, and active media before closing it."
-    : "The tab changed while checking. It has been kept open; try again.");
+  if (!safe.tab) {
+    // The tab stays open, so its capsule would only reopen a duplicate.
+    if (capsule) await deleteRecoveryCapsule(capsule.id).catch(() => undefined);
+    if (safe.reason !== "protected") throw new Error("The tab changed while checking. It has been kept open; try again.");
+    const uncheckable = await (async () => !tab.discarded && (await getSettings()).protectUnsavedWork &&
+      !await chrome.permissions.contains({ origins: ["http://*/*", "https://*/*"] }))().catch(() => false);
+    throw new Error(uncheckable
+      ? "Coppice can’t check this tab for unsaved work, so it stays open. Turn on Allow website checks in Settings to close it."
+      : "This tab is protected and has been kept open. Check Keep loaded, unsaved work, and active media before closing it.");
+  }
   await chrome.tabs.remove(tabId);
   return { tabId, title: tab.title, closed: true };
 }

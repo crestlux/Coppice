@@ -1,4 +1,3 @@
-import { formatPercent } from "../shared/time";
 import type { PressureRootCause } from "../shared/types";
 
 export type IntelligenceVisualState = "normal" | "warning" | "danger" | "muted";
@@ -8,27 +7,19 @@ export interface RootCausePresentation {
   visualState: IntelligenceVisualState;
 }
 
-function boundedConfidence(confidence: number): number {
-  return Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0;
-}
-
 export function presentPressureRootCause(
-  cause: PressureRootCause,
-  confidence: number
+  cause: PressureRootCause
 ): RootCausePresentation {
-  const confidenceLabel = formatPercent(boundedConfidence(confidence));
-
   switch (cause) {
     case "none":
       return { headline: "No active pressure", visualState: "normal" };
     case "chromeTabs":
-      return { headline: `Chrome tabs · ${confidenceLabel}`, visualState: "warning" };
+      return { headline: "Mostly Chrome tabs", visualState: "warning" };
     case "mixed":
-      return { headline: `Mixed load · ${confidenceLabel}`, visualState: "warning" };
+      return { headline: "Tabs and other apps", visualState: "warning" };
     case "otherApplications":
-      return { headline: `Other apps · ${confidenceLabel}`, visualState: "warning" };
+      return { headline: "Mostly other apps", visualState: "warning" };
     case "insufficientData":
-      return { headline: "More evidence needed", visualState: "muted" };
     case "unknown":
       return { headline: "Cause unclear", visualState: "muted" };
   }
